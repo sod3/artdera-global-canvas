@@ -67,7 +67,7 @@ function ProductPage() {
           </div>
           {product.images.length > 1 && (
             <div className="mt-3 flex gap-3">
-              {product.images.map((img, i) => (
+              {product.images.map((img: string, i: number) => (
                 <button key={i} onClick={() => setActive(i)} className={`h-20 w-20 rounded overflow-hidden ring-1 transition ${i === active ? "ring-foreground" : "ring-border"}`}>
                   <img src={img} alt="" className="h-full w-full object-cover"/>
                 </button>

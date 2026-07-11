@@ -36,7 +36,7 @@ function Login() {
         </div>
       </div>
       <div className="relative hidden lg:block">
-        <img src={IMAGES.hero_studio ?? IMAGES.heroStudio} alt="" className="absolute inset-0 h-full w-full object-cover"/>
+        <img src={IMAGES.heroStudio} alt="" className="absolute inset-0 h-full w-full object-cover"/>
       </div>
     </div>
   );
