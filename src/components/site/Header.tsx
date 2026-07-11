@@ -1,16 +1,14 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Logo } from "./Logo";
-import { CATEGORIES } from "@/lib/artdera";
 
 const NAV = [
-  { label: "Discover", to: "/discover" },
-  { label: "Original Works", to: "/discover", search: { category: "original-works" } },
-  { label: "Prints", to: "/discover", search: { category: "prints" } },
-  { label: "Calligraphy", to: "/discover", search: { category: "calligraphy" } },
-  { label: "Photography", to: "/discover", search: { category: "photography" } },
-  { label: "Creators", to: "/creators" },
-  { label: "Collections", to: "/collections" },
+  { label: "Discover", href: "/discover" },
+  { label: "Original Works", href: "/discover?category=original-works" },
+  { label: "Prints", href: "/discover?category=prints" },
+  { label: "Calligraphy", href: "/discover?category=calligraphy" },
+  { label: "Photography", href: "/discover?category=photography" },
+  { label: "Creators", href: "/creators" },
+  { label: "Collections", href: "/collections" },
 ];
 
 export function Announcement() {
@@ -21,9 +19,9 @@ export function Announcement() {
         <span className="hidden md:inline opacity-40">·</span>
         <span className="opacity-80">Protected seller payouts</span>
         <span className="hidden md:inline opacity-40">·</span>
-        <Link to="/sell" className="hidden md:inline underline-offset-4 hover:underline">
+        <a href="/sell" className="hidden md:inline underline-offset-4 hover:underline">
           Apply to sell on ArtDera
-        </Link>
+        </a>
       </div>
     </div>
   );
@@ -40,32 +38,32 @@ export function Header() {
             <Logo />
             <nav className="hidden lg:flex items-center gap-7 text-sm">
               {NAV.slice(0, 6).map((item) => (
-                <Link
+                <a
                   key={item.label}
-                  to={item.to}
+                  href={item.href}
                   className="text-foreground/80 hover:text-foreground transition-colors"
                 >
                   {item.label}
-                </Link>
+                </a>
               ))}
             </nav>
           </div>
           <div className="flex items-center gap-1.5">
-            <Link to="/discover" aria-label="Search" className="p-2.5 hover:bg-secondary rounded-full transition">
+            <a href="/discover" aria-label="Search" className="p-2.5 hover:bg-secondary rounded-full transition">
               <SearchIcon />
-            </Link>
-            <Link to="/wishlist" aria-label="Wishlist" className="p-2.5 hover:bg-secondary rounded-full transition hidden sm:inline-flex">
+            </a>
+            <a href="/wishlist" aria-label="Wishlist" className="p-2.5 hover:bg-secondary rounded-full transition hidden sm:inline-flex">
               <HeartIcon />
-            </Link>
-            <Link to="/auth/login" aria-label="Account" className="p-2.5 hover:bg-secondary rounded-full transition hidden sm:inline-flex">
+            </a>
+            <a href="/auth/login" aria-label="Account" className="p-2.5 hover:bg-secondary rounded-full transition hidden sm:inline-flex">
               <UserIcon />
-            </Link>
-            <Link to="/cart" aria-label="Cart" className="p-2.5 hover:bg-secondary rounded-full transition">
+            </a>
+            <a href="/cart" aria-label="Cart" className="p-2.5 hover:bg-secondary rounded-full transition">
               <BagIcon />
-            </Link>
-            <Link to="/sell" className="btn-dark ml-2 hidden md:inline-flex">
+            </a>
+            <a href="/sell" className="btn-dark ml-2 hidden md:inline-flex">
               Sell on ArtDera
-            </Link>
+            </a>
             <button
               className="lg:hidden p-2.5 hover:bg-secondary rounded-full"
               onClick={() => setOpen(!open)}
@@ -80,18 +78,18 @@ export function Header() {
         <div className="lg:hidden hairline">
           <div className="container-editorial py-4 flex flex-col gap-1">
             {NAV.map((item) => (
-              <Link
+              <a
                 key={item.label}
-                to={item.to}
+                href={item.href}
                 onClick={() => setOpen(false)}
                 className="py-2 text-base"
               >
                 {item.label}
-              </Link>
+              </a>
             ))}
-            <Link to="/sell" className="btn-dark mt-3 self-start" onClick={() => setOpen(false)}>
+            <a href="/sell" className="btn-dark mt-3 self-start" onClick={() => setOpen(false)}>
               Sell on ArtDera
-            </Link>
+            </a>
           </div>
         </div>
       )}
@@ -99,14 +97,8 @@ export function Header() {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-  );
-}
+function SearchIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>); }
 function HeartIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>); }
 function UserIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>); }
 function BagIcon() { return (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>); }
 function MenuIcon() { return (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>); }
-
-export { CATEGORIES };

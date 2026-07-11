@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { Logo } from "./Logo";
 
 const COLS = [
@@ -6,11 +5,11 @@ const COLS = [
     title: "Marketplace",
     links: [
       ["Discover", "/discover"],
-      ["Original Works", "/discover"],
-      ["Prints", "/discover"],
-      ["Calligraphy", "/discover"],
-      ["Photography", "/discover"],
-      ["Custom Commissions", "/discover"],
+      ["Original Works", "/discover?category=original-works"],
+      ["Prints", "/discover?category=prints"],
+      ["Calligraphy", "/discover?category=calligraphy"],
+      ["Photography", "/discover?category=photography"],
+      ["Custom Commissions", "/discover?category=custom-commissions"],
     ],
   },
   {
@@ -28,7 +27,7 @@ const COLS = [
     title: "Sellers",
     links: [
       ["Sell on ArtDera", "/sell"],
-      ["Seller plans", "/sell"],
+      ["Seller plans", "/sell#plans"],
       ["Authenticity & AI policy", "/authenticity"],
       ["Success stories", "/journal"],
       ["Seller support", "/help"],
@@ -72,7 +71,7 @@ export function Footer() {
                 <ul className="mt-4 space-y-2.5 text-sm">
                   {c.links.map(([label, href]) => (
                     <li key={label}>
-                      <Link to={href} className="opacity-80 hover:opacity-100">{label}</Link>
+                      <a href={href} className="opacity-80 hover:opacity-100">{label}</a>
                     </li>
                   ))}
                 </ul>
@@ -102,11 +101,11 @@ export function Footer() {
         <div className="mt-14 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs opacity-60">
           <div>© {new Date().getFullYear()} ArtDera. A Global Marketplace for Art &amp; Décor.</div>
           <div className="flex flex-wrap gap-4">
-            <Link to="/legal/terms">Terms</Link>
-            <Link to="/legal/privacy">Privacy</Link>
-            <Link to="/legal/cookies">Cookies</Link>
-            <Link to="/legal/copyright">Copyright</Link>
-            <Link to="/legal/ai-policy">AI Policy</Link>
+            <a href="/legal/terms">Terms</a>
+            <a href="/legal/privacy">Privacy</a>
+            <a href="/legal/cookies">Cookies</a>
+            <a href="/legal/copyright">Copyright</a>
+            <a href="/legal/ai-policy">AI Policy</a>
           </div>
         </div>
       </div>
