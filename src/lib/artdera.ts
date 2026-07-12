@@ -12,9 +12,18 @@ import heroStudio from "@/assets/hero-studio.jpg";
 import roomDining from "@/assets/room-dining.jpg";
 
 export const IMAGES = {
-  art1, art2, art3, art4, art5, art6,
-  creator1, creator2, creator3,
-  heroInterior, heroStudio, roomDining,
+  art1,
+  art2,
+  art3,
+  art4,
+  art5,
+  art6,
+  creator1,
+  creator2,
+  creator3,
+  heroInterior,
+  heroStudio,
+  roomDining,
 };
 
 export type Category = {
@@ -25,12 +34,42 @@ export type Category = {
 };
 
 export const CATEGORIES: Category[] = [
-  { slug: "original-works", name: "Original Works", blurb: "One-of-one pieces from studios across the region.", image: art1 },
-  { slug: "prints", name: "Prints", blurb: "Limited and open editions on museum-grade paper.", image: art4 },
-  { slug: "calligraphy", name: "Calligraphy", blurb: "Contemporary and classical script traditions.", image: art2 },
-  { slug: "photography", name: "Photography", blurb: "Fine art photography, hand-printed and signed.", image: art3 },
-  { slug: "wall-decor", name: "Wall Décor", blurb: "Considered objects that complete a wall.", image: art6 },
-  { slug: "custom-commissions", name: "Custom Commissions", blurb: "Work with a creator on something made for you.", image: art5 },
+  {
+    slug: "original-works",
+    name: "Original Works",
+    blurb: "One-of-one pieces from studios across the region.",
+    image: art1,
+  },
+  {
+    slug: "prints",
+    name: "Prints",
+    blurb: "Limited and open editions on museum-grade paper.",
+    image: art4,
+  },
+  {
+    slug: "calligraphy",
+    name: "Calligraphy",
+    blurb: "Contemporary and classical script traditions.",
+    image: art2,
+  },
+  {
+    slug: "photography",
+    name: "Photography",
+    blurb: "Fine art photography, hand-printed and signed.",
+    image: art3,
+  },
+  {
+    slug: "wall-decor",
+    name: "Wall Décor",
+    blurb: "Considered objects that complete a wall.",
+    image: art6,
+  },
+  {
+    slug: "custom-commissions",
+    name: "Custom Commissions",
+    blurb: "Work with a creator on something made for you.",
+    image: art5,
+  },
 ];
 
 export type Creator = {
@@ -302,5 +341,9 @@ export function productsByCategory(slug: string) {
   return PRODUCTS.filter((p) => p.categorySlug === slug);
 }
 export function formatPKR(n: number) {
-  return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    maximumFractionDigits: 0,
+  }).format(n);
 }

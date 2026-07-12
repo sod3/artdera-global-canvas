@@ -9,10 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as TradeRouteImport } from './routes/trade'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SellRouteImport } from './routes/sell'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as CreatorsRouteImport } from './routes/creators'
 import { Route as CollectionsRouteImport } from './routes/collections'
@@ -21,10 +25,21 @@ import { Route as BuyerProtectionRouteImport } from './routes/buyer-protection'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
 import { Route as CreatorSlugRouteImport } from './routes/creator.$slug'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
 
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TradeRoute = TradeRouteImport.update({
+  id: '/trade',
+  path: '/trade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -35,6 +50,11 @@ const SellRoute = SellRouteImport.update({
   path: '/sell',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
@@ -43,6 +63,11 @@ const JournalRoute = JournalRouteImport.update({
 const HowItWorksRoute = HowItWorksRouteImport.update({
   id: '/how-it-works',
   path: '/how-it-works',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiscoverRoute = DiscoverRouteImport.update({
@@ -85,6 +110,11 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
   path: '/product/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalSlugRoute = LegalSlugRouteImport.update({
+  id: '/legal/$slug',
+  path: '/legal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CreatorSlugRoute = CreatorSlugRouteImport.update({
   id: '/creator/$slug',
   path: '/creator/$slug',
@@ -109,13 +139,18 @@ export interface FileRoutesByFullPath {
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
   '/discover': typeof DiscoverRoute
+  '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
+  '/messages': typeof MessagesRoute
   '/sell': typeof SellRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trade': typeof TradeRoute
+  '/wishlist': typeof WishlistRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesByTo {
@@ -126,13 +161,18 @@ export interface FileRoutesByTo {
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
   '/discover': typeof DiscoverRoute
+  '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
+  '/messages': typeof MessagesRoute
   '/sell': typeof SellRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trade': typeof TradeRoute
+  '/wishlist': typeof WishlistRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRoutesById {
@@ -144,13 +184,18 @@ export interface FileRoutesById {
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
   '/discover': typeof DiscoverRoute
+  '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
+  '/messages': typeof MessagesRoute
   '/sell': typeof SellRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/trade': typeof TradeRoute
+  '/wishlist': typeof WishlistRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
 }
 export interface FileRouteTypes {
@@ -163,13 +208,18 @@ export interface FileRouteTypes {
     | '/collections'
     | '/creators'
     | '/discover'
+    | '/help'
     | '/how-it-works'
     | '/journal'
+    | '/messages'
     | '/sell'
     | '/sitemap.xml'
+    | '/trade'
+    | '/wishlist'
     | '/auth/login'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/legal/$slug'
     | '/product/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -180,13 +230,18 @@ export interface FileRouteTypes {
     | '/collections'
     | '/creators'
     | '/discover'
+    | '/help'
     | '/how-it-works'
     | '/journal'
+    | '/messages'
     | '/sell'
     | '/sitemap.xml'
+    | '/trade'
+    | '/wishlist'
     | '/auth/login'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/legal/$slug'
     | '/product/$slug'
   id:
     | '__root__'
@@ -197,13 +252,18 @@ export interface FileRouteTypes {
     | '/collections'
     | '/creators'
     | '/discover'
+    | '/help'
     | '/how-it-works'
     | '/journal'
+    | '/messages'
     | '/sell'
     | '/sitemap.xml'
+    | '/trade'
+    | '/wishlist'
     | '/auth/login'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/legal/$slug'
     | '/product/$slug'
   fileRoutesById: FileRoutesById
 }
@@ -215,18 +275,37 @@ export interface RootRouteChildren {
   CollectionsRoute: typeof CollectionsRoute
   CreatorsRoute: typeof CreatorsRoute
   DiscoverRoute: typeof DiscoverRoute
+  HelpRoute: typeof HelpRoute
   HowItWorksRoute: typeof HowItWorksRoute
   JournalRoute: typeof JournalRoute
+  MessagesRoute: typeof MessagesRoute
   SellRoute: typeof SellRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TradeRoute: typeof TradeRoute
+  WishlistRoute: typeof WishlistRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignupRoute: typeof AuthSignupRoute
   CreatorSlugRoute: typeof CreatorSlugRoute
+  LegalSlugRoute: typeof LegalSlugRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trade': {
+      id: '/trade'
+      path: '/trade'
+      fullPath: '/trade'
+      preLoaderRoute: typeof TradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -241,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/journal': {
       id: '/journal'
       path: '/journal'
@@ -253,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/how-it-works'
       fullPath: '/how-it-works'
       preLoaderRoute: typeof HowItWorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/discover': {
@@ -311,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/$slug': {
+      id: '/legal/$slug'
+      path: '/legal/$slug'
+      fullPath: '/legal/$slug'
+      preLoaderRoute: typeof LegalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/creator/$slug': {
       id: '/creator/$slug'
       path: '/creator/$slug'
@@ -343,15 +443,30 @@ const rootRouteChildren: RootRouteChildren = {
   CollectionsRoute: CollectionsRoute,
   CreatorsRoute: CreatorsRoute,
   DiscoverRoute: DiscoverRoute,
+  HelpRoute: HelpRoute,
   HowItWorksRoute: HowItWorksRoute,
   JournalRoute: JournalRoute,
+  MessagesRoute: MessagesRoute,
   SellRoute: SellRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TradeRoute: TradeRoute,
+  WishlistRoute: WishlistRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthSignupRoute: AuthSignupRoute,
   CreatorSlugRoute: CreatorSlugRoute,
+  LegalSlugRoute: LegalSlugRoute,
   ProductSlugRoute: ProductSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

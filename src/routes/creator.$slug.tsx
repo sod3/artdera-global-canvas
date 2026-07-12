@@ -13,8 +13,13 @@ export const Route = createFileRoute("/creator/$slug")({
       { title: loaderData ? `${loaderData.creator.name} — ArtDera` : "Creator — ArtDera" },
       { name: "description", content: loaderData?.creator.bio.slice(0, 155) },
       { property: "og:title", content: loaderData?.creator.name },
-      { property: "og:url", content: loaderData ? `/creator/${loaderData.creator.slug}` : undefined },
-      ...(loaderData ? [{ property: "og:image" as const, content: loaderData.creator.portrait }] : []),
+      {
+        property: "og:url",
+        content: loaderData ? `/creator/${loaderData.creator.slug}` : undefined,
+      },
+      ...(loaderData
+        ? [{ property: "og:image" as const, content: loaderData.creator.portrait }]
+        : []),
     ],
     links: loaderData ? [{ rel: "canonical", href: `/creator/${loaderData.creator.slug}` }] : [],
   }),
@@ -22,7 +27,9 @@ export const Route = createFileRoute("/creator/$slug")({
   notFoundComponent: () => (
     <div className="container-editorial py-24 text-center">
       <h1 className="font-display text-4xl">Creator not found</h1>
-      <a href="/creators" className="btn-primary mt-6">Meet the creators</a>
+      <a href="/creators" className="btn-primary mt-6">
+        Meet the creators
+      </a>
     </div>
   ),
 });
@@ -41,9 +48,18 @@ function CreatorPage() {
             <div className="mt-3 flex flex-wrap gap-2 text-xs">
               <span className="chip">{creator.discipline}</span>
               <span className="chip">{creator.location}</span>
-              {creator.verified && <span className="chip" style={{ background: "var(--indigo)", color: "var(--porcelain)" }}>✓ Identity verified</span>}
+              {creator.verified && (
+                <span
+                  className="chip"
+                  style={{ background: "var(--indigo)", color: "var(--porcelain)" }}
+                >
+                  ✓ Identity verified
+                </span>
+              )}
             </div>
-            <p className="mt-6 text-[15px] leading-relaxed text-muted-foreground max-w-xl">{creator.bio}</p>
+            <p className="mt-6 text-[15px] leading-relaxed text-muted-foreground max-w-xl">
+              {creator.bio}
+            </p>
             <div className="mt-8 flex gap-3">
               <button className="btn-primary">Follow studio</button>
               <button className="btn-ghost">Request a commission</button>
@@ -71,7 +87,9 @@ function CreatorPage() {
         <div className="eyebrow">Work</div>
         <h2 className="mt-3 font-display text-3xl">Selected pieces from the studio</h2>
         <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-x-5 gap-y-12">
-          {works.map((p) => (<ProductCard key={p.slug} product={p} />))}
+          {works.map((p) => (
+            <ProductCard key={p.slug} product={p} />
+          ))}
         </div>
       </section>
     </div>

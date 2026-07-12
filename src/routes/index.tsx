@@ -1,13 +1,47 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CATEGORIES, COLLECTIONS, CREATORS, PRODUCTS, ROOMS, formatPKR, IMAGES } from "@/lib/artdera";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Building2,
+  ChevronRight,
+  Globe2,
+  HeartHandshake,
+  LockKeyhole,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  CATEGORIES,
+  COLLECTIONS,
+  CREATORS,
+  PRODUCTS,
+  formatPKR,
+  getProduct,
+  IMAGES,
+} from "@/lib/artdera";
 import { ProductCard } from "@/components/site/ProductCard";
+
+const WALL_QUIZ_BUDGET_MAX: Record<string, number> = {
+  "Under PKR 10,000": 10000,
+  "Under PKR 25,000": 25000,
+  "Under PKR 50,000": 50000,
+  "PKR 50,000-100,000": 100000,
+  "Collector pieces": 300000,
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "ArtDera — Discover Art. Shape Your Space." },
-      { name: "description", content: "A curated marketplace for original works, prints, calligraphy, photography and premium wall décor from independent creators and galleries." },
-      { property: "og:title", content: "ArtDera — Discover Art. Shape Your Space." },
+      { title: "ArtDera - Discover Art. Shape Your Space." },
+      {
+        name: "description",
+        content:
+          "A premium marketplace for original works, prints, calligraphy, photography and curated decor from independent creators and galleries.",
+      },
+      { property: "og:title", content: "ArtDera - Discover Art. Shape Your Space." },
       { property: "og:url", content: "/" },
     ],
     links: [{ rel: "canonical", href: "/" }],
@@ -17,347 +51,1042 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const featured = PRODUCTS.filter((p) => p.featured);
-  const editPicks = COLLECTIONS[0].products.map((s) => PRODUCTS.find((p) => p.slug === s)!).filter(Boolean);
-  const affordable = PRODUCTS.filter((p) => p.price < 25000);
+  const editPicks = COLLECTIONS[0].products
+    .map((s) => PRODUCTS.find((p) => p.slug === s)!)
+    .filter(Boolean);
+  const affordable = PRODUCTS.filter((p) => p.price < 50000);
+  const collector = PRODUCTS.find((p) => p.kind === "Original") ?? PRODUCTS[0];
 
   return (
     <div>
-      {/* HERO */}
-      <section className="relative overflow-hidden" style={{ backgroundColor: "var(--ivory)" }}>
-        <div className="container-editorial pt-14 pb-20 lg:pt-24 lg:pb-32 grid lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-16 items-center">
-          <div>
-            <div className="eyebrow">A Global Marketplace for Art &amp; Décor</div>
-            <h1 className="mt-5 font-display text-[clamp(2.6rem,6vw,5.2rem)] leading-[0.98] tracking-tight">
-              Discover Art. <span style={{ color: "var(--oxblood)" }}>Shape Your Space.</span>
+      <CinematicHero />
+      <TrustStrip />
+      <CategoryMosaic />
+      <ArtDeraEdit products={editPicks} />
+      <CurateWallQuiz />
+      <ShopThisSpace />
+      <CreatorSpotlight />
+      <CollectorSpotlight product={collector} />
+      <BrowseByColour />
+      <CommissionPreview />
+      <AIWorkSection />
+      <AffordableDiscoveries products={affordable} />
+      <BusinessSection />
+      <BuyerProtectionSection />
+      <SellerInvitation />
+      <JournalSection />
+      <NewsletterSection />
+      <section className="container-editorial pb-4">
+        <div className="sr-only" aria-live="polite">
+          {featured.length} featured works loaded.
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CinematicHero() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (reduceMotion.matches) {
+      video.pause();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void video.play().catch(() => undefined);
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: 0.18 },
+    );
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <section className="relative min-h-[100svh] overflow-hidden bg-[var(--ink)] text-white">
+      <video
+        ref={videoRef}
+        aria-hidden="true"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        poster={IMAGES.heroInterior}
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      >
+        <source src="/hero.mp4" type="video/mp4" />
+      </video>
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(23,23,23,0.82)_0%,rgba(23,23,23,0.52)_38%,rgba(23,23,23,0.16)_72%),linear-gradient(0deg,rgba(23,23,23,0.78)_0%,transparent_36%,rgba(23,23,23,0.24)_100%)]" />
+      <div className="relative z-10 flex min-h-[100svh] items-end">
+        <div className="container-editorial pb-24 pt-36 md:pb-28">
+          <div className="max-w-3xl">
+            <div className="eyebrow hero-reveal text-white/70">
+              A Global Marketplace for Art &amp; Decor
+            </div>
+            <h1 className="mt-5 font-display text-[clamp(3.3rem,8vw,7.7rem)] leading-[0.92]">
+              <span className="hero-reveal hero-reveal-delay-1 block">Discover Art.</span>
+              <span className="hero-reveal hero-reveal-delay-2 block text-white/88">
+                Shape Your Space.
+              </span>
             </h1>
-            <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
-              Explore original works, expressive prints, calligraphy, photography and thoughtfully curated décor from independent creators, studios and galleries — shipped from Pakistan to the world.
+            <p className="hero-reveal hero-reveal-delay-3 mt-7 max-w-xl text-base leading-relaxed text-white/78 md:text-lg">
+              Explore original works, expressive prints, calligraphy, photography and thoughtfully
+              curated decor from independent creators, studios and galleries.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/discover" className="btn-primary">Explore the Marketplace</Link>
-              <a href="/sell" className="btn-ghost">Sell on ArtDera</a>
-            </div>
-            <div className="mt-10 flex flex-wrap gap-6 text-xs text-muted-foreground">
-              {["Verified sellers", "Secure payments", "Protected buyer &amp; seller", "AI disclosure required"].map((t) => (
-                <span key={t} className="inline-flex items-center gap-2"><Dot /> <span dangerouslySetInnerHTML={{ __html: t }} /></span>
-              ))}
-            </div>
-          </div>
-          <div className="relative">
-            <div className="grid grid-cols-6 grid-rows-6 gap-3 h-[520px] lg:h-[620px]">
-              <div className="col-span-4 row-span-4 relative overflow-hidden rounded-lg">
-                <img src={IMAGES.heroInterior} alt="Living room with abstract original artwork" className="h-full w-full object-cover" />
-              </div>
-              <div className="col-span-2 row-span-3 col-start-5 relative overflow-hidden rounded-lg">
-                <img src={IMAGES.art1} alt="Original terracotta brushwork" className="h-full w-full object-cover" loading="lazy" />
-              </div>
-              <div className="col-span-2 row-span-3 col-start-5 row-start-4 relative overflow-hidden rounded-lg">
-                <img src={IMAGES.heroStudio} alt="Detail of a painting studio" className="h-full w-full object-cover" loading="lazy" />
-              </div>
-              <div className="col-span-4 row-span-2 row-start-5 relative overflow-hidden rounded-lg">
-                <img src={IMAGES.art3} alt="Fine art photograph of the Karakoram" className="h-full w-full object-cover" loading="lazy" />
-              </div>
+            <div className="hero-reveal hero-reveal-delay-4 mt-9 flex flex-wrap gap-3">
+              <Link to="/discover" className="btn-primary">
+                Explore the Marketplace
+              </Link>
+              <a
+                href="/sell"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/35 px-5 text-sm font-semibold text-white transition hover:bg-white hover:text-[var(--ink)]"
+              >
+                Sell on ArtDera
+              </a>
             </div>
           </div>
+          <a
+            href="#trust-strip"
+            className="scroll-cue absolute bottom-8 left-1/2 hidden -translate-x-1/2 items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/60 md:flex"
+          >
+            Scroll to discover <ChevronRight className="h-4 w-4 rotate-90" />
+          </a>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* TRUST STRIP */}
-      <section className="border-y" style={{ borderColor: "var(--color-border)" }}>
-        <div className="container-editorial grid grid-cols-2 md:grid-cols-5 gap-6 py-6 text-xs">
-          {[
-            ["Verified sellers", "Identity & studio review"],
-            ["Secure payments", "Local & international"],
-            ["Nationwide delivery", "Careful, tracked shipping"],
-            ["Buyer protection", "Applies to eligible orders"],
-            ["Originality & AI disclosure", "Every listing labelled"],
-          ].map(([t, s]) => (
-            <div key={t}>
-              <div className="text-foreground font-semibold">{t}</div>
-              <div className="text-muted-foreground mt-0.5">{s}</div>
-            </div>
+function TrustStrip() {
+  const items = [
+    { icon: BadgeCheck, title: "Verified sellers", text: "Reviewed creator and studio profiles" },
+    { icon: LockKeyhole, title: "Secure checkout", text: "Protected payment flow" },
+    { icon: ShieldCheck, title: "Protected purchases", text: "Support for eligible orders" },
+    { icon: Truck, title: "Nationwide delivery", text: "Careful, tracked shipping" },
+    { icon: Sparkles, title: "Clear disclosure", text: "Originality and AI labels" },
+  ];
+
+  return (
+    <section id="trust-strip" className="relative z-20 -mt-8">
+      <div className="container-editorial">
+        <div className="grid gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4 shadow-[var(--shadow-soft)] md:grid-cols-5">
+          {items.map((item) => (
+            <TrustItem key={item.title} {...item} />
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* SHOP BY CATEGORY — editorial grid */}
-      <section className="container-editorial pt-20">
-        <SectionHead
-          eyebrow="Browse"
-          title="Shop the marketplace"
-          subtitle="Six ways in. From one-of-one originals to accessible prints and considered décor."
-          cta={["View all", "/discover"]}
-        />
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4 lg:[grid-template-rows:repeat(2,minmax(0,1fr))]">
-          {CATEGORIES.map((c, i) => (
-            <a
-              key={c.slug}
-              href={`/discover?category=${c.slug}`}
-              className={`group relative overflow-hidden rounded-lg ${
-                i === 0 ? "lg:col-span-2 lg:row-span-2 aspect-[4/5] lg:aspect-auto" : "aspect-[4/5]"
-              }`}
-            >
-              <img src={c.image} alt={c.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute bottom-0 p-4 lg:p-5 text-white">
-                <div className="font-display text-lg lg:text-2xl">{c.name}</div>
-                {i === 0 && <div className="text-xs opacity-80 mt-1 max-w-xs">{c.blurb}</div>}
+function TrustItem({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl p-3">
+      <Icon className="mt-0.5 h-5 w-5 text-[var(--oxblood)]" />
+      <div>
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryMosaic() {
+  const classes = [
+    "md:col-span-2 md:row-span-2 md:aspect-auto",
+    "md:col-span-2",
+    "",
+    "",
+    "md:col-span-2",
+    "bg-[var(--ink)]",
+  ];
+
+  return (
+    <section className="container-editorial section-y">
+      <SectionHead
+        eyebrow="Browse"
+        title="Enter through the work, the room or the feeling."
+        subtitle="An editorial gateway to originals, editions, calligraphy, photography, wall decor and commissions."
+        cta={["View all", "/discover"]}
+      />
+      <div className="mt-10 grid auto-rows-[220px] grid-cols-1 gap-4 md:grid-cols-4 md:auto-rows-[250px]">
+        {CATEGORIES.map((category, index) => (
+          <a
+            key={category.slug}
+            href={`/discover?category=${category.slug}`}
+            className={`group relative overflow-hidden rounded-xl ${classes[index]}`}
+          >
+            <img
+              src={category.image}
+              alt={category.name}
+              className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.05]"
+              loading={index > 1 ? "lazy" : undefined}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/76 via-black/18 to-transparent transition group-hover:from-black/84" />
+            <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+              <div className="font-display text-3xl">{category.name}</div>
+              <p className="mt-2 max-w-sm translate-y-2 text-sm text-white/72 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100 md:block">
+                {category.blurb}
+              </p>
+              <div className="mt-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/78">
+                Explore <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-1" />
               </div>
-            </a>
-          ))}
-        </div>
-      </section>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-      {/* THE ARTDERA EDIT */}
-      <section className="container-editorial pt-24">
+function ArtDeraEdit({ products }: { products: typeof PRODUCTS }) {
+  const dominant = products[0];
+  const supporting = products.slice(1, 4);
+  if (!dominant) return null;
+
+  return (
+    <section className="bg-[var(--porcelain)]">
+      <div className="container-editorial section-y">
         <SectionHead
           eyebrow="Curated"
           title="The ArtDera Edit"
           subtitle="A considered selection of works chosen for expressive quality, craftsmanship and the spaces they transform."
-          cta={["View the Collection", "/collections/the-artdera-edit"]}
+          cta={["View Collection", "/collections/the-artdera-edit"]}
         />
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
-          {editPicks.map((p) => (<ProductCard key={p.slug} product={p} />))}
-        </div>
-      </section>
-
-      {/* ORIGINAL WORKS spotlight */}
-      <section className="mt-24" style={{ backgroundColor: "var(--porcelain)" }}>
-        <div className="container-editorial py-20 grid lg:grid-cols-[1fr_1.1fr] gap-12 items-center">
-          <div className="order-2 lg:order-1">
-            <div className="eyebrow">Original works</div>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl">One canvas. One story.<br/>One owner.</h2>
-            <p className="mt-5 max-w-lg text-muted-foreground">
-              Every original on ArtDera is a single, unrepeatable work. We show you dimensions, medium, year, orientation and the hand that made it — so you can commit with confidence.
-            </p>
-            <div className="mt-8 grid grid-cols-3 gap-6 max-w-md">
-              {[["120+", "Original works"], ["40", "Cities shipped"], ["7-day", "Protected window"]].map(([n, l]) => (
-                <div key={l}>
-                  <div className="font-display text-3xl">{n}</div>
-                  <div className="text-xs text-muted-foreground mt-1 leading-tight">{l}</div>
-                </div>
-              ))}
-            </div>
-            <a href="/discover?category=original-works" className="btn-primary mt-9">Browse originals</a>
-          </div>
-          <div className="order-1 lg:order-2 grid grid-cols-5 gap-3 h-[440px]">
-            <div className="col-span-3 relative overflow-hidden rounded-lg">
-              <img src={IMAGES.art6} alt="Original mixed-media artwork" className="h-full w-full object-cover" loading="lazy"/>
-            </div>
-            <div className="col-span-2 grid grid-rows-2 gap-3">
-              <div className="relative overflow-hidden rounded-lg"><img src={IMAGES.art1} alt="" className="h-full w-full object-cover" loading="lazy"/></div>
-              <div className="relative overflow-hidden rounded-lg"><img src={IMAGES.heroStudio} alt="" className="h-full w-full object-cover" loading="lazy"/></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ART FOR EVERY SPACE */}
-      <section className="container-editorial pt-24">
-        <SectionHead eyebrow="By room" title="Art for every space" subtitle="Find work that belongs where you live and work." />
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {ROOMS.map((r) => (
-            <a key={r.slug} href={`/discover?room=${r.slug}`} className="group relative overflow-hidden rounded-lg aspect-square">
-              <img src={r.image} alt={r.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-3 left-3 text-white text-sm font-semibold">{r.name}</div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* MEET THE CREATORS */}
-      <section className="container-editorial pt-24">
-        <SectionHead eyebrow="Meet the creators" title="Behind every work is a story" subtitle="Independent artists, printmakers and photographers from across the region." cta={["Meet the Creators", "/creators"]} />
-        <div className="mt-10 grid md:grid-cols-3 gap-6">
-          {CREATORS.map((c) => (
-            <Link key={c.slug} to="/creator/$slug" params={{ slug: c.slug }} className="group block">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-lg">
-                <img src={c.portrait} alt={c.name} className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform duration-700" loading="lazy" />
+        <div className="mt-10 grid gap-5 lg:grid-cols-[1.18fr_0.82fr]">
+          <Link
+            to="/product/$slug"
+            params={{ slug: dominant.slug }}
+            className="group relative min-h-[520px] overflow-hidden rounded-xl bg-[var(--ink)] text-white"
+          >
+            <img
+              src={dominant.images[0]}
+              alt={dominant.title}
+              className="absolute inset-0 h-full w-full object-cover opacity-88 transition duration-700 group-hover:scale-[1.025]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/18 to-transparent" />
+            <div className="absolute bottom-0 max-w-lg p-6 md:p-8">
+              <div className="eyebrow text-white/60">Dominant work</div>
+              <h3 className="mt-3 font-display text-4xl md:text-5xl">{dominant.title}</h3>
+              <p className="mt-4 text-sm leading-relaxed text-white/72">{dominant.description}</p>
+              <div className="mt-5 text-sm font-semibold">
+                {formatPKR(dominant.price)} / {dominant.kind}
               </div>
-              <div className="mt-4 flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-display text-xl">{c.name}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{c.discipline} · {c.location}</div>
-                </div>
-                {c.verified && <span className="chip" style={{ background: "var(--indigo)", color: "var(--porcelain)" }}>✓ Verified</span>}
-              </div>
-            </Link>
-          ))}
+            </div>
+          </Link>
+          <div className="grid gap-5">
+            {supporting.map((product) => (
+              <Link
+                key={product.slug}
+                to="/product/$slug"
+                params={{ slug: product.slug }}
+                className="group grid grid-cols-[120px_1fr] gap-4 rounded-xl border border-[var(--color-border)] bg-white/55 p-3 transition hover:border-[var(--oxblood)]"
+              >
+                <img
+                  src={product.images[0]}
+                  alt={product.title}
+                  className="h-36 w-full rounded-lg object-cover transition group-hover:scale-[1.02]"
+                  loading="lazy"
+                />
+                <span className="py-2">
+                  <span className="eyebrow">Museum caption</span>
+                  <span className="mt-2 block font-display text-2xl">{product.title}</span>
+                  <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
+                    {product.medium} / {product.dimensions}
+                  </span>
+                  <span className="mt-3 block text-sm font-semibold">
+                    {formatPKR(product.price)}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* COMMISSIONS */}
-      <section className="mt-24" style={{ backgroundColor: "var(--ink)", color: "var(--ivory)" }}>
-        <div className="container-editorial py-20">
-          <div className="grid lg:grid-cols-[1fr_1.2fr] gap-12">
+function CurateWallQuiz() {
+  const [answers, setAnswers] = useState<Record<string, string>>({
+    room: "Living room",
+    mood: "Calm",
+    colour: "ivory",
+    size: "Medium",
+    budget: "Under PKR 50,000",
+  });
+
+  const recommendation = useMemo(() => {
+    const max = WALL_QUIZ_BUDGET_MAX[answers.budget] ?? 300000;
+    return (
+      PRODUCTS.find(
+        (product) =>
+          product.price <= max &&
+          product.room.some((room) =>
+            room.toLowerCase().includes(answers.room.toLowerCase().split(" ")[0]),
+          ) &&
+          product.colours.includes(answers.colour),
+      ) ??
+      PRODUCTS.find((product) => product.price <= max) ??
+      PRODUCTS[0]
+    );
+  }, [answers]);
+
+  const params = new URLSearchParams({
+    room: answers.room.toLowerCase().replace(/ /g, "-"),
+    q: `${answers.mood} ${answers.colour} ${answers.size}`,
+  });
+
+  return (
+    <section className="container-editorial section-y">
+      <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+        <div className="lg:sticky lg:top-32">
+          <div className="eyebrow">Curate My Wall</div>
+          <h2 className="mt-3 font-display text-4xl md:text-5xl">Find Art Made for Your Space</h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Tell us about your room, style and budget. We will help you discover pieces that belong
+            in your space.
+          </p>
+          <a href={`/discover?${params.toString()}`} className="btn-primary mt-7">
+            Curate My Wall
+          </a>
+        </div>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5 shadow-[var(--shadow-soft)] md:p-7">
+          <QuizGroup
+            title="Which room are you styling?"
+            field="room"
+            answers={answers}
+            setAnswers={setAnswers}
+            options={[
+              "Living room",
+              "Bedroom",
+              "Office",
+              "Dining room",
+              "Restaurant",
+              "Hotel",
+              "Other",
+            ]}
+          />
+          <QuizGroup
+            title="What mood do you prefer?"
+            field="mood"
+            answers={answers}
+            setAnswers={setAnswers}
+            options={["Calm", "Bold", "Minimal", "Cultural", "Luxurious", "Expressive"]}
+          />
+          <QuizGroup
+            title="Which colours do you want?"
+            field="colour"
+            answers={answers}
+            setAnswers={setAnswers}
+            options={["terracotta", "indigo", "ivory", "oxblood", "ink", "stone"]}
+          />
+          <QuizGroup
+            title="What size are you looking for?"
+            field="size"
+            answers={answers}
+            setAnswers={setAnswers}
+            options={["Small", "Medium", "Large", "Statement"]}
+          />
+          <QuizGroup
+            title="What is your budget?"
+            field="budget"
+            answers={answers}
+            setAnswers={setAnswers}
+            options={Object.keys(WALL_QUIZ_BUDGET_MAX)}
+          />
+          <div className="mt-7 grid gap-4 rounded-xl bg-[var(--ivory)] p-4 md:grid-cols-[100px_1fr_auto] md:items-center">
+            <img
+              src={recommendation.images[0]}
+              alt={recommendation.title}
+              className="h-28 w-24 rounded-lg object-cover"
+            />
             <div>
-              <div className="eyebrow" style={{ color: "color-mix(in oklab, var(--ivory) 60%, transparent)" }}>Custom Commissions</div>
-              <h2 className="mt-3 font-display text-4xl md:text-5xl">Something made<br/>for your wall.</h2>
-              <p className="mt-5 opacity-75 max-w-lg text-[15px]">
-                Work with a creator on a piece scaled, coloured and composed for your space. A structured, protected process from first sketch to final delivery.
-              </p>
-              <a href="/discover?category=custom-commissions" className="mt-8 inline-flex btn-primary" style={{ background: "var(--terracotta)", color: "var(--ink)" }}>
-                Request a Commission
-              </a>
+              <div className="eyebrow">Suggested starting point</div>
+              <div className="mt-1 font-display text-2xl">{recommendation.title}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{recommendation.medium}</div>
             </div>
-            <ol className="grid sm:grid-cols-2 gap-6">
-              {[
-                ["01", "Share your idea", "Tell us about the space, mood, size and budget."],
-                ["02", "Select a creator", "We match you with artists whose work fits your vision."],
-                ["03", "Agree on scope", "Approve the concept, price and delivery timeline."],
-                ["04", "Follow progress", "See updates as the work develops in studio."],
-                ["05", "Approve and pay", "Final approval before the piece ships to you."],
-                ["06", "Receive your work", "Delivered carefully, ready to live with."],
-              ].map(([n, t, d]) => (
-                <li key={n}>
-                  <div className="font-display text-2xl opacity-50">{n}</div>
-                  <div className="mt-1 font-semibold">{t}</div>
-                  <div className="text-sm opacity-70 mt-1">{d}</div>
-                </li>
-              ))}
-            </ol>
+            <Link to="/product/$slug" params={{ slug: recommendation.slug }} className="btn-ghost">
+              View Work
+            </Link>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* AI DISCLOSURE */}
-      <section className="container-editorial pt-24">
-        <div className="rounded-2xl border p-8 md:p-12 grid md:grid-cols-[1fr_1.5fr] gap-8 items-center" style={{ borderColor: "var(--color-border)", background: "var(--porcelain)" }}>
+function QuizGroup({
+  title,
+  field,
+  answers,
+  setAnswers,
+  options,
+}: {
+  title: string;
+  field: string;
+  answers: Record<string, string>;
+  setAnswers: Dispatch<SetStateAction<Record<string, string>>>;
+  options: string[];
+}) {
+  return (
+    <div className="border-b border-[var(--color-border)] py-5 first:pt-0 last:border-0">
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setAnswers((value) => ({ ...value, [field]: option }))}
+            className="chip capitalize"
+            style={
+              answers[field] === option ? { background: "var(--ink)", color: "var(--ivory)" } : {}
+            }
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ShopThisSpace() {
+  const hotProducts = ["quiet-horizon", "silence-in-script", "pomegranate-study"]
+    .map((slug) => getProduct(slug))
+    .filter(Boolean) as typeof PRODUCTS;
+  const [activeSlug, setActiveSlug] = useState(hotProducts[0]?.slug);
+  const active = hotProducts.find((product) => product.slug === activeSlug) ?? hotProducts[0];
+  const positions = [
+    { slug: "quiet-horizon", x: "48%", y: "34%" },
+    { slug: "silence-in-script", x: "25%", y: "43%" },
+    { slug: "pomegranate-study", x: "71%", y: "58%" },
+  ];
+
+  if (!active) return null;
+
+  return (
+    <section id="shop-this-space" className="bg-[var(--ink)] text-[var(--ivory)]">
+      <div className="container-editorial section-y">
+        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div>
-            <div className="eyebrow">AI &amp; emerging creativity</div>
-            <h2 className="mt-3 font-display text-3xl md:text-4xl">New tools. New expressions.</h2>
-          </div>
-          <div className="text-[15px] text-muted-foreground">
-            <p>
-              We welcome responsible AI-assisted work as a distinct category. Every listing declares whether it is <strong className="text-foreground">Original</strong>, <strong className="text-foreground">Handmade</strong>, <strong className="text-foreground">AI-assisted</strong> or <strong className="text-foreground">AI-generated</strong> — so buyers know exactly what they're collecting.
+            <div className="eyebrow text-white/55">Interior discovery</div>
+            <h2 className="mt-3 font-display text-4xl md:text-5xl">Shop This Space</h2>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/68">
+              See how scale, colour and negative space can turn a room into a collection.
             </p>
-            <a href="/authenticity" className="mt-4 inline-block btn-ghost">Read the AI policy</a>
-          </div>
-        </div>
-      </section>
-
-      {/* AFFORDABLE */}
-      <section className="container-editorial pt-24">
-        <SectionHead eyebrow="Accessible" title="Under PKR 25,000" subtitle="Original and edition works to begin — or extend — a collection." cta={["Shop under PKR 25,000", "/collections/under-25k"]} />
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
-          {affordable.slice(0, 4).map((p) => (<ProductCard key={p.slug} product={p} />))}
-        </div>
-      </section>
-
-      {/* TRADE */}
-      <section className="mt-24" style={{ backgroundColor: "var(--indigo)", color: "var(--ivory)" }}>
-        <div className="container-editorial py-20 grid lg:grid-cols-[1.1fr_1fr] gap-12 items-center">
-          <div>
-            <div className="eyebrow" style={{ color: "color-mix(in oklab, var(--ivory) 60%, transparent)" }}>Interior designers &amp; business</div>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl">Work with ArtDera.</h2>
-            <p className="mt-5 max-w-xl opacity-80">
-              Sourcing for a hotel, office, restaurant, residence or corporate gifting programme? Our trade team curates original and edition work at scale, with dedicated project support.
-            </p>
-            <a href="/trade" className="btn-primary mt-8" style={{ background: "var(--ivory)", color: "var(--ink)" }}>Work with us</a>
-          </div>
-          <div className="grid grid-cols-2 gap-3 h-[380px]">
-            <div className="overflow-hidden rounded-lg"><img src={IMAGES.roomDining} alt="Dining room" className="h-full w-full object-cover" loading="lazy"/></div>
-            <div className="overflow-hidden rounded-lg"><img src={IMAGES.heroInterior} alt="Living room" className="h-full w-full object-cover" loading="lazy"/></div>
-          </div>
-        </div>
-      </section>
-
-      {/* SELLER INVITE */}
-      <section className="container-editorial pt-24">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="relative aspect-[5/4] overflow-hidden rounded-lg">
-            <img src={IMAGES.creator1} alt="Artist in her studio" className="h-full w-full object-cover" loading="lazy" />
-          </div>
-          <div>
-            <div className="eyebrow">Sell on ArtDera</div>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl">Your work deserves a wider world.</h2>
-            <p className="mt-5 max-w-lg text-muted-foreground">
-              Build your storefront, reach serious buyers, and manage products, commissions and orders from one place. Three seller plans, transparent commissions, protected payouts.
-            </p>
-            <div className="mt-8 grid sm:grid-cols-3 gap-4 max-w-2xl">
-              {[
-                ["Starter", "PKR 0/mo", "~15% commission"],
-                ["Professional", "from PKR 2,500", "~10–12% commission"],
-                ["Gallery", "from PKR 8,000", "~7–9% commission"],
-              ].map(([n, p, c]) => (
-                <div key={n} className="rounded-lg border p-4" style={{ borderColor: "var(--color-border)" }}>
-                  <div className="font-display text-lg">{n}</div>
-                  <div className="text-sm mt-1">{p}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{c}</div>
-                </div>
+            <div className="relative mt-8 overflow-hidden rounded-xl">
+              <img
+                src={IMAGES.heroInterior}
+                alt="Sophisticated living room with art and decor"
+                className="h-full min-h-[460px] w-full object-cover"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+              {positions.map((spot, index) => (
+                <button
+                  key={spot.slug}
+                  type="button"
+                  onClick={() => setActiveSlug(spot.slug)}
+                  onMouseEnter={() => setActiveSlug(spot.slug)}
+                  className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/60 bg-white/18 text-sm font-bold backdrop-blur transition hover:scale-110 focus-visible:bg-white focus-visible:text-[var(--ink)]"
+                  style={{ left: spot.x, top: spot.y }}
+                  aria-label={`View product hotspot ${index + 1}`}
+                >
+                  {index + 1}
+                </button>
               ))}
             </div>
-            <a href="/sell" className="btn-primary mt-8">Apply to Sell</a>
+          </div>
+          <div className="rounded-2xl border border-white/12 bg-white/[0.06] p-5">
+            <img
+              src={active.images[0]}
+              alt={active.title}
+              className="aspect-[4/5] w-full rounded-xl object-cover"
+              loading="lazy"
+            />
+            <div className="mt-5">
+              <div className="eyebrow text-white/50">Selected piece</div>
+              <h3 className="mt-2 font-display text-3xl">{active.title}</h3>
+              <div className="mt-1 text-sm text-white/65">{active.medium}</div>
+              <div className="mt-4 font-semibold">{formatPKR(active.price)}</div>
+              <Link
+                to="/product/$slug"
+                params={{ slug: active.slug }}
+                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--ivory)] px-5 text-sm font-semibold text-[var(--ink)]"
+              >
+                View Product
+              </Link>
+            </div>
+            <div className="mt-6 grid gap-3 md:hidden">
+              {hotProducts.map((product) => (
+                <button
+                  key={product.slug}
+                  type="button"
+                  onClick={() => setActiveSlug(product.slug)}
+                  className="rounded-xl border border-white/12 p-3 text-left text-sm"
+                >
+                  {product.title} / {formatPKR(product.price)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* JOURNAL */}
-      <section className="container-editorial pt-24">
-        <SectionHead eyebrow="Journal" title="Stories, guides, quiet ideas" cta={["Read the journal", "/journal"]} />
-        <div className="mt-10 grid md:grid-cols-3 gap-6">
-          {[
-            ["Choosing your first original", "A short field guide for new collectors — scale, budget and how to trust your eye.", IMAGES.art1],
-            ["Framing calligraphy well", "Materials, mounts and the small choices that let a work breathe.", IMAGES.art2],
-            ["Living with photography", "Where fine-art prints belong, and how to hang them.", IMAGES.art3],
-          ].map(([t, d, img]) => (
-            <a key={t} href="/journal" className="group block">
-              <div className="aspect-[4/3] overflow-hidden rounded-lg">
-                <img src={img as string} alt="" className="h-full w-full object-cover group-hover:scale-[1.03] transition-transform duration-700" loading="lazy" />
+function CreatorSpotlight() {
+  const creator = CREATORS[0];
+  const works = creator.works.map((slug) => getProduct(slug)).filter(Boolean) as typeof PRODUCTS;
+
+  return (
+    <section className="container-editorial section-y">
+      <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div className="relative overflow-hidden rounded-xl">
+          <img
+            src={creator.portrait}
+            alt={creator.name}
+            className="aspect-[4/5] w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+        <div>
+          <div className="eyebrow">Creator spotlight</div>
+          <h2 className="mt-3 font-display text-4xl md:text-5xl">Behind Every Work Is a Story</h2>
+          <blockquote className="mt-6 max-w-xl font-display text-3xl leading-tight text-[var(--oxblood)]">
+            "I want colour to feel like a remembered room."
+          </blockquote>
+          <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {creator.bio}
+          </p>
+          <div className="mt-5 text-sm font-semibold">
+            {creator.name} / {creator.location} / {creator.discipline}
+          </div>
+          <div className="mt-7 grid grid-cols-3 gap-3">
+            {works.slice(0, 3).map((work) => (
+              <Link
+                key={work.slug}
+                to="/product/$slug"
+                params={{ slug: work.slug }}
+                className="group block"
+              >
+                <img
+                  src={work.images[0]}
+                  alt={work.title}
+                  className="aspect-square rounded-lg object-cover transition group-hover:scale-[1.03]"
+                  loading="lazy"
+                />
+              </Link>
+            ))}
+          </div>
+          <Link to="/creator/$slug" params={{ slug: creator.slug }} className="btn-primary mt-8">
+            Visit Studio
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CollectorSpotlight({ product }: { product: (typeof PRODUCTS)[number] }) {
+  const creator = CREATORS.find((item) => item.slug === product.creatorSlug);
+
+  return (
+    <section className="bg-[var(--ink)] text-[var(--ivory)]">
+      <div className="container-editorial section-y">
+        <div className="grid gap-10 lg:grid-cols-[1.12fr_0.88fr] lg:items-center">
+          <div className="grid grid-cols-[1fr_0.42fr] gap-4">
+            <img
+              src={product.images[0]}
+              alt={product.title}
+              className="min-h-[520px] rounded-xl object-cover"
+              loading="lazy"
+            />
+            <img
+              src={product.images[0]}
+              alt=""
+              className="h-72 rounded-xl object-cover object-left lg:h-full"
+              loading="lazy"
+            />
+          </div>
+          <div>
+            <div className="eyebrow text-white/55">Collector spotlight</div>
+            <h2 className="mt-3 font-display text-4xl md:text-5xl">
+              One Work. One Story. One Owner.
+            </h2>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <span className="chip" style={{ background: "var(--ivory)", color: "var(--ink)" }}>
+                One-of-one
+              </span>
+              <span
+                className="chip"
+                style={{ background: "rgba(255,255,255,0.12)", color: "var(--ivory)" }}
+              >
+                {product.year}
+              </span>
+            </div>
+            <h3 className="mt-6 font-display text-3xl">{product.title}</h3>
+            <dl className="mt-5 grid grid-cols-2 gap-4 text-sm text-white/72">
+              <div>
+                <dt className="text-white">Creator</dt>
+                <dd>{creator?.name}</dd>
               </div>
-              <div className="mt-4 font-display text-xl">{t}</div>
-              <div className="text-sm text-muted-foreground mt-1">{d}</div>
-            </a>
+              <div>
+                <dt className="text-white">Medium</dt>
+                <dd>{product.medium}</dd>
+              </div>
+              <div>
+                <dt className="text-white">Dimensions</dt>
+                <dd>{product.dimensions}</dd>
+              </div>
+              <div>
+                <dt className="text-white">Disclosure</dt>
+                <dd>{product.kind}</dd>
+              </div>
+            </dl>
+            <p className="mt-6 text-sm leading-relaxed text-white/68">
+              Certificate and originality information are shown on the listing when supplied by the
+              seller.
+            </p>
+            <div className="mt-6 font-display text-3xl">{formatPKR(product.price)}</div>
+            <Link
+              to="/product/$slug"
+              params={{ slug: product.slug }}
+              className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--ivory)] px-5 text-sm font-semibold text-[var(--ink)]"
+            >
+              Collect This Work
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BrowseByColour() {
+  const options = [
+    { label: "Terracotta", value: "terracotta", tone: "#B65F42" },
+    { label: "Indigo", value: "indigo", tone: "#263454" },
+    { label: "Ivory", value: "ivory", tone: "#F6F1E8" },
+    { label: "Emerald", value: "green", tone: "#235747" },
+    { label: "Monochrome", value: "ink", tone: "#171717" },
+    { label: "Warm neutrals", value: "stone", tone: "#A89F94" },
+    { label: "Pastels", value: "ivory", tone: "#E7DAD2" },
+    { label: "Vibrant", value: "oxblood", tone: "#6E2334" },
+  ];
+  const [selected, setSelected] = useState(options[0]);
+  const visible = PRODUCTS.filter((product) => product.colours.includes(selected.value)).slice(
+    0,
+    4,
+  );
+  const products = visible.length ? visible : PRODUCTS.slice(0, 4);
+
+  return (
+    <section
+      id="browse-by-colour"
+      className="section-y transition-colors"
+      style={{ background: `color-mix(in oklab, ${selected.tone} 14%, var(--ivory))` }}
+    >
+      <div className="container-editorial">
+        <SectionHead
+          eyebrow="Colour discovery"
+          title="Browse by colour"
+          subtitle="Start with atmosphere, then move toward medium, scale and price."
+        />
+        <div className="mt-8 flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {options.map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              onClick={() => setSelected(option)}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[var(--color-border-strong)] bg-[var(--porcelain)] px-4 text-sm font-semibold"
+            >
+              <span
+                className="h-4 w-4 rounded-full border border-black/10"
+                style={{ background: option.tone }}
+              />
+              {option.label}
+            </button>
           ))}
         </div>
-      </section>
+        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-4">
+          {products.map((product) => (
+            <ProductCard key={`${selected.label}-${product.slug}`} product={product} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
-      {/* BUYER PROTECTION */}
-      <section className="container-editorial pt-24 pb-12">
-        <div className="rounded-2xl p-8 md:p-12 grid md:grid-cols-[1fr_2fr] gap-10 items-center" style={{ background: "var(--ivory)", border: "1px solid var(--color-border)" }}>
-          <div>
-            <div className="eyebrow">How ArtDera protects you</div>
-            <h2 className="mt-3 font-display text-3xl md:text-4xl">Buy with confidence.</h2>
-            <a href="/buyer-protection" className="btn-ghost mt-6">Read the details</a>
+function CommissionPreview() {
+  const [type, setType] = useState("Original painting");
+  const [size, setSize] = useState("Medium");
+  const [style, setStyle] = useState("Abstract");
+  const [colour, setColour] = useState("Warm neutrals");
+  const [budget, setBudget] = useState("PKR 50,000-100,000");
+  const [deadline, setDeadline] = useState("6-8 weeks");
+  const query = encodeURIComponent(`${type} ${size} ${style} ${colour} ${budget} ${deadline}`);
+
+  return (
+    <section className="container-editorial section-y">
+      <div className="grid gap-8 rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5 md:p-8 lg:grid-cols-[0.85fr_1.15fr]">
+        <div>
+          <div className="eyebrow">Custom commissions</div>
+          <h2 className="mt-3 font-display text-4xl md:text-5xl">
+            Made for You, From the Beginning
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Shape the brief before you contact a creator. The result opens a commission-ready
+            discovery path.
+          </p>
+          <a href={`/discover?category=custom-commissions&q=${query}`} className="btn-primary mt-7">
+            Start a Commission
+          </a>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectPill
+            label="Artwork type"
+            value={type}
+            setValue={setType}
+            options={["Original painting", "Calligraphy", "Photography print", "Mixed media"]}
+          />
+          <SelectPill
+            label="Size"
+            value={size}
+            setValue={setSize}
+            options={["Small", "Medium", "Large", "Statement"]}
+          />
+          <SelectPill
+            label="Style"
+            value={style}
+            setValue={setStyle}
+            options={["Abstract", "Minimal", "Cultural", "Expressive"]}
+          />
+          <SelectPill
+            label="Colour mood"
+            value={colour}
+            setValue={setColour}
+            options={["Warm neutrals", "Indigo", "Terracotta", "Monochrome"]}
+          />
+          <SelectPill
+            label="Budget"
+            value={budget}
+            setValue={setBudget}
+            options={["Under PKR 50,000", "PKR 50,000-100,000", "Collector piece"]}
+          />
+          <SelectPill
+            label="Deadline"
+            value={deadline}
+            setValue={setDeadline}
+            options={["4 weeks", "6-8 weeks", "Flexible"]}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SelectPill({
+  label,
+  value,
+  setValue,
+  options,
+}: {
+  label: string;
+  value: string;
+  setValue: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <label className="block">
+      <span className="eyebrow">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className="mt-2 min-h-12 w-full rounded-full border border-[var(--color-border)] bg-white/60 px-4 text-sm"
+      >
+        {options.map((option) => (
+          <option key={option}>{option}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function AIWorkSection() {
+  return (
+    <section className="container-editorial pb-16">
+      <div className="grid gap-6 rounded-2xl border border-[var(--color-border)] bg-[var(--ivory)] p-6 md:grid-cols-[0.8fr_1.2fr] md:p-8">
+        <div>
+          <div className="eyebrow">AI-created work</div>
+          <h2 className="mt-3 font-display text-3xl md:text-4xl">New Tools. New Expressions.</h2>
+        </div>
+        <div>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Explore clearly labelled works created with emerging digital and generative tools.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {["AI-generated", "AI-assisted", "Digitally created", "Printed edition"].map(
+              (badge) => (
+                <span key={badge} className="chip">
+                  {badge}
+                </span>
+              ),
+            )}
           </div>
-          <div className="grid sm:grid-cols-2 gap-6 text-sm">
-            {[
-              ["Verified sellers", "Identity, studio and portfolio review before a store goes live."],
-              ["Protected payouts", "Funds are released to sellers only after a short confirmation window."],
-              ["Tracked delivery", "Every order ships with tracking; fragile works are insured above threshold."],
-              ["Clear returns & disputes", "A dedicated resolution process, staffed by real people."],
-            ].map(([t, d]) => (
-              <div key={t}>
-                <div className="font-semibold">{t}</div>
-                <div className="text-muted-foreground mt-1">{d}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AffordableDiscoveries({ products }: { products: typeof PRODUCTS }) {
+  return (
+    <section id="affordable-discoveries" className="container-editorial section-y">
+      <SectionHead
+        eyebrow="Price-led collections"
+        title="Affordable discoveries"
+        subtitle="Begin with a budget, then let material, scale and feeling narrow the field."
+        cta={["Shop under PKR 50,000", "/discover?max=50000"]}
+      />
+      <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[
+          ["Under PKR 10,000", "/discover?max=10000"],
+          ["Under PKR 25,000", "/discover?max=25000"],
+          ["Under PKR 50,000", "/discover?max=50000"],
+          ["Collector pieces", "/discover?kind=Original"],
+        ].map(([label, href]) => (
+          <a
+            key={label}
+            href={href}
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4 font-display text-2xl transition hover:border-[var(--oxblood)]"
+          >
+            {label}
+          </a>
+        ))}
+      </div>
+      <div className="mt-10 flex snap-x gap-5 overflow-x-auto pb-4 no-scrollbar">
+        {products.slice(0, 6).map((product) => (
+          <div key={product.slug} className="w-[250px] shrink-0 snap-start md:w-[290px]">
+            <ProductCard product={product} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BusinessSection() {
+  return (
+    <section className="bg-[var(--indigo)] text-[var(--ivory)]">
+      <div className="container-editorial section-y">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
+          <div>
+            <div className="eyebrow text-white/55">Interior designers and businesses</div>
+            <h2 className="mt-3 font-display text-4xl md:text-5xl">Art for Spaces That Matter</h2>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70">
+              Curated sourcing for interior designers, hotels, restaurants, offices, developers and
+              corporate gifting teams.
+            </p>
+            <a
+              href="/trade"
+              className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--ivory)] px-5 text-sm font-semibold text-[var(--ink)]"
+            >
+              Work With ArtDera
+            </a>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[Building2, Globe2, HeartHandshake].map((Icon, index) => (
+              <div key={index} className="rounded-xl border border-white/12 bg-white/[0.06] p-5">
+                <Icon className="h-6 w-6" />
+                <div className="mt-10 text-sm text-white/72">
+                  {["Hospitality sourcing", "International projects", "Corporate gifting"][index]}
+                </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
 
-function SectionHead({ eyebrow, title, subtitle, cta }: { eyebrow: string; title: string; subtitle?: string; cta?: [string, string] }) {
+function BuyerProtectionSection() {
+  return (
+    <section className="container-editorial section-y">
+      <div className="grid gap-8 rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-6 md:p-8 lg:grid-cols-[0.75fr_1.25fr]">
+        <div>
+          <div className="eyebrow">Buyer protection</div>
+          <h2 className="mt-3 font-display text-3xl md:text-4xl">Buy with confidence.</h2>
+          <a href="/buyer-protection" className="btn-ghost mt-6">
+            How ArtDera Protects You
+          </a>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[
+            ["Verified seller information", "Creator profiles and listing details are reviewed."],
+            ["Protected purchase process", "Support is available for eligible order issues."],
+            ["Delivery tracking", "Sellers provide tracked dispatch where available."],
+            ["Clear return eligibility", "Product pages keep return context visible."],
+          ].map(([title, text]) => (
+            <div key={title} className="rounded-xl bg-white/55 p-4">
+              <div className="font-semibold">{title}</div>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SellerInvitation() {
+  return (
+    <section className="container-editorial pb-16">
+      <div className="relative overflow-hidden rounded-2xl bg-[var(--ink)] text-white">
+        <img
+          src={IMAGES.creator1}
+          alt="Artist working in studio"
+          className="absolute inset-0 h-full w-full object-cover opacity-35"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/86 via-black/54 to-black/10" />
+        <div className="relative max-w-2xl p-7 md:p-12">
+          <div className="eyebrow text-white/55">Sell on ArtDera</div>
+          <h2 className="mt-3 font-display text-4xl md:text-5xl">
+            Your Work Deserves a Wider World
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-white/72">
+            Build your storefront, reach serious buyers and manage products, commissions and orders
+            from one place.
+          </p>
+          <a
+            href="/sell"
+            className="mt-7 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--ivory)] px-5 text-sm font-semibold text-[var(--ink)]"
+          >
+            Apply to Sell
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function JournalSection() {
+  const articles = [
+    ["Choosing your first original", "Scale, budget and how to trust your eye.", IMAGES.art1],
+    [
+      "Framing calligraphy well",
+      "Materials, mounts and the small choices that let a work breathe.",
+      IMAGES.art2,
+    ],
+    ["Living with photography", "Where fine-art prints belong, and how to hang them.", IMAGES.art3],
+  ];
+
+  return (
+    <section className="container-editorial pb-16">
+      <SectionHead
+        eyebrow="Journal"
+        title="Stories for meaningful spaces"
+        cta={["Read the journal", "/journal"]}
+      />
+      <div className="mt-10 grid gap-5 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
+        {articles.map(([title, text, image], index) => (
+          <a key={title as string} href="/journal" className="group block">
+            <div
+              className={`overflow-hidden rounded-xl ${index === 0 ? "aspect-[16/10]" : "aspect-[4/3]"}`}
+            >
+              <img
+                src={image as string}
+                alt=""
+                className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
+                loading="lazy"
+              />
+            </div>
+            <div className="mt-4 font-display text-2xl">{title}</div>
+            <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NewsletterSection() {
+  return (
+    <section className="container-editorial pb-20">
+      <div className="grid gap-5 rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-6 md:grid-cols-[1fr_1fr] md:items-center md:p-8">
+        <div>
+          <div className="eyebrow">Newsletter</div>
+          <h2 className="mt-3 font-display text-4xl">A More Beautiful Inbox</h2>
+          <p className="mt-3 text-sm text-muted-foreground">
+            New collections, creator stories and inspiration for meaningful spaces.
+          </p>
+        </div>
+        <form
+          className="flex flex-col gap-3 sm:flex-row"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <label className="sr-only" htmlFor="newsletter-email">
+            Email address
+          </label>
+          <input
+            id="newsletter-email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            className="art-input min-h-12 flex-1"
+          />
+          <button type="submit" className="btn-primary">
+            Join
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function SectionHead({
+  eyebrow,
+  title,
+  subtitle,
+  cta,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  cta?: [string, string];
+}) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-6">
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <div className="eyebrow">{eyebrow}</div>
         <h2 className="mt-3 font-display text-3xl md:text-4xl lg:text-5xl">{title}</h2>
-        {subtitle && <p className="mt-3 text-muted-foreground max-w-xl">{subtitle}</p>}
+        {subtitle && (
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
+        )}
       </div>
       {cta && (
         <a href={cta[1]} className="btn-ghost">
           {cta[0]}
-          <span aria-hidden>→</span>
+          <ArrowRight className="h-4 w-4" />
         </a>
       )}
     </div>
   );
-}
-
-function Dot() {
-  return <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: "var(--terracotta)" }} />;
 }
