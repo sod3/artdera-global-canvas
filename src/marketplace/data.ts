@@ -1,4 +1,3 @@
-import { CREATORS, IMAGES, PRODUCTS } from "@/lib/artdera";
 import type {
   AnalyticsRecord,
   Artwork,
@@ -6,7 +5,6 @@ import type {
   Conversation,
   CustomerRecord,
   Exhibition,
-  Gallery,
   Message,
   Notification,
   Order,
@@ -20,763 +18,100 @@ import type {
   VerificationRequest,
 } from "./types";
 
-export const SEEDED_USERS: User[] = [
-  {
-    id: "user-free-artist",
-    fullName: "Sara Nadeem",
-    email: "free.artist@artdera.demo",
-    mobile: "+92 300 555 0105",
-    city: "Lahore",
-    province: "Punjab",
-    country: "Pakistan",
-    role: "artist",
-    avatar: CREATORS[0]?.portrait,
-    createdAt: "2026-06-11",
-  },
-  {
-    id: "user-professional-artist",
-    fullName: "Areeba Hasan",
-    email: "professional.artist@artdera.demo",
-    mobile: "+92 300 555 0150",
-    city: "Lahore",
-    province: "Punjab",
-    country: "Pakistan",
-    role: "artist",
-    avatar: CREATORS[0]?.portrait,
-    createdAt: "2026-03-14",
-  },
-  {
-    id: "user-pro-artist",
-    fullName: "Hira Qureshi",
-    email: "pro.artist@artdera.demo",
-    mobile: "+92 321 555 0120",
-    city: "Karachi",
-    province: "Sindh",
-    country: "Pakistan",
-    role: "artist",
-    avatar: CREATORS[2]?.portrait,
-    createdAt: "2026-02-21",
-  },
-  {
-    id: "user-artist",
-    fullName: "Areeba Hasan",
-    email: "artist@artdera.demo",
-    mobile: "+92 300 555 0142",
-    city: "Lahore",
-    province: "Punjab",
-    country: "Pakistan",
-    role: "artist",
-    avatar: CREATORS[0]?.portrait,
-    createdAt: "2026-01-14",
-  },
-  {
-    id: "user-gallery",
-    fullName: "Mariam Raza",
-    email: "gallery@artdera.demo",
-    mobile: "+92 321 555 0198",
-    city: "Karachi",
-    province: "Sindh",
-    country: "Pakistan",
-    role: "gallery",
-    avatar: CREATORS[1]?.portrait,
-    createdAt: "2025-11-08",
-  },
-  {
-    id: "user-buyer",
-    fullName: "Hamza Ahmed",
-    email: "buyer@artdera.demo",
-    city: "Islamabad",
-    province: "Islamabad Capital Territory",
-    country: "Pakistan",
-    role: "buyer",
-    createdAt: "2026-02-18",
-  },
-  {
-    id: "user-admin",
-    fullName: "ArtDera Operations",
-    email: "admin@artdera.demo",
-    city: "Islamabad",
-    country: "Pakistan",
-    role: "admin",
-    createdAt: "2025-08-01",
-  },
-];
-
-export const SEEDED_ARTIST: ArtistLike = {
-  ...(SEEDED_USERS[0] as User),
-  role: "artist",
-  planId: "professional",
-  storeId: "store-artist",
-  professionalTitle: "Contemporary Visual Artist",
-  verificationStatus: "Approved",
-  languages: ["English", "Urdu", "Punjabi"],
-};
-
-type ArtistLike = User & {
-  role: "artist";
-  planId: "professional";
-  storeId: string;
-  professionalTitle: string;
-  verificationStatus: "Approved";
-  languages: string[];
-};
-
-export const SEEDED_GALLERY: Gallery = {
-  ...(SEEDED_USERS[1] as User),
-  role: "gallery",
-  planId: "gallery",
-  storeId: "store-gallery",
-  staffIds: ["staff-1", "staff-2", "staff-3"],
-  managedArtistIds: ["managed-1", "managed-2", "managed-3"],
-  verificationStatus: "Approved",
-};
-
-export const STORES: Store[] = [
-  {
-    id: "store-free-artist",
-    ownerId: "user-free-artist",
-    slug: "sara-nadeem-studio",
-    name: "Sara Nadeem Studio",
-    tagline: "Quiet colour studies rooted in Lahore.",
-    bio: "An emerging Lahore artist working across drawing and painting.",
-    story: "Sara's practice follows everyday light, inherited objects and the changing city.",
-    location: "Lahore, Pakistan",
-    categories: ["Painting", "Drawing"],
-    mediums: ["Acrylic", "Graphite"],
-    coverImage: IMAGES.heroStudio,
-    profileImage: CREATORS[0]?.portrait ?? IMAGES.creator1,
-    verified: false,
-    status: "Published",
-    followers: 84,
-    rating: 4.7,
-    reviewCount: 6,
-  },
-  {
-    id: "store-professional-artist",
-    ownerId: "user-professional-artist",
-    slug: "areeba-hasan-studio",
-    name: "Areeba Hasan Studio",
-    tagline: "Colour, memory and the geometry of home.",
-    bio: "A Lahore-based contemporary practice exploring landscape and memory.",
-    story: "Areeba develops layered works from field notes, colour studies and urban architecture.",
-    location: "Lahore, Pakistan",
-    categories: ["Abstract", "Contemporary"],
-    mediums: ["Acrylic", "Mixed media"],
-    coverImage: IMAGES.heroStudio,
-    profileImage: CREATORS[0]?.portrait ?? IMAGES.creator1,
-    verified: false,
-    status: "Published",
-    followers: 642,
-    rating: 4.9,
-    reviewCount: 28,
-  },
-  {
-    id: "store-pro-artist",
-    ownerId: "user-pro-artist",
-    slug: "hira-qureshi-works",
-    name: "Hira Qureshi Works",
-    tagline: "Material stories across borders.",
-    bio: "A Karachi artist working with mixed media, print and photography.",
-    story: "Hira's work considers movement, language and coastal memory.",
-    location: "Karachi, Pakistan",
-    categories: ["Mixed media", "Photography"],
-    mediums: ["Mixed media", "Archival print"],
-    coverImage: IMAGES.heroInterior,
-    profileImage: CREATORS[2]?.portrait ?? IMAGES.creator3,
-    verified: false,
-    status: "Published",
-    followers: 1094,
-    rating: 4.8,
-    reviewCount: 43,
-  },
-  {
-    id: "store-artist",
-    ownerId: "user-artist",
-    slug: "artdera-artist-studio",
-    name: "ArtDera Artist Studio",
-    tagline: "Colour, memory and the quiet geometry of home.",
-    bio: "A Lahore-based contemporary practice exploring landscape, calligraphic rhythm and memory through richly layered surfaces.",
-    story:
-      "Areeba Hasan established her studio in 2018 after studying visual communication and returning to painting. Each work begins with field notes, colour studies and conversations with the architecture of Pakistani cities.",
-    location: "Lahore, Pakistan",
-    categories: ["Abstract", "Landscape", "Calligraphy"],
-    mediums: ["Acrylic", "Mixed media", "Ink"],
-    coverImage: IMAGES.heroStudio,
-    profileImage: CREATORS[0]?.portrait ?? IMAGES.creator1,
-    featuredArtworkId: "art-1",
-    verified: true,
-    status: "Published",
-    followers: 1284,
-    rating: 4.9,
-    reviewCount: 38,
-  },
-  {
-    id: "store-gallery",
-    ownerId: "user-gallery",
-    slug: "artdera-contemporary-gallery",
-    name: "ArtDera Contemporary Gallery",
-    tagline: "A considered programme of emerging Pakistani voices.",
-    bio: "An independent Karachi gallery representing painters, printmakers, photographers and interdisciplinary artists across Pakistan.",
-    story:
-      "Founded to make careful collecting more approachable, the gallery pairs rigorous curatorial context with transparent artwork and shipping information.",
-    location: "Karachi, Pakistan",
-    categories: ["Contemporary", "Photography", "Limited Edition"],
-    mediums: ["Oil", "Photography", "Printmaking"],
-    coverImage: IMAGES.heroInterior,
-    profileImage: CREATORS[1]?.portrait ?? IMAGES.creator2,
-    featuredArtworkId: "art-5",
-    verified: true,
-    status: "Published",
-    followers: 3068,
-    rating: 4.8,
-    reviewCount: 91,
-  },
-];
-
-const artworkSeeds = [
-  {
-    id: "art-1",
-    product: PRODUCTS[0],
-    status: "Published",
-    storeId: "store-artist",
-    views: 2480,
-    saves: 186,
-    messages: 24,
-    sponsored: true,
-  },
-  {
-    id: "art-2",
-    product: PRODUCTS[1],
-    status: "Published",
-    storeId: "store-artist",
-    views: 1610,
-    saves: 92,
-    messages: 15,
-    sponsored: false,
-  },
-  {
-    id: "art-3",
-    product: PRODUCTS[2],
-    status: "Draft",
-    storeId: "store-artist",
-    views: 0,
-    saves: 0,
-    messages: 0,
-    sponsored: false,
-  },
-  {
-    id: "art-4",
-    product: PRODUCTS[3],
-    status: "Sold",
-    storeId: "store-artist",
-    views: 3104,
-    saves: 244,
-    messages: 36,
-    sponsored: false,
-  },
-  {
-    id: "art-5",
-    product: PRODUCTS[4] ?? PRODUCTS[0],
-    status: "Published",
-    storeId: "store-gallery",
-    views: 4150,
-    saves: 302,
-    messages: 42,
-    sponsored: false,
-  },
-  {
-    id: "art-free-1",
-    product: PRODUCTS[0],
-    status: "Published",
-    storeId: "store-free-artist",
-    views: 214,
-    saves: 18,
-    messages: 3,
-    sponsored: false,
-  },
-  {
-    id: "art-free-2",
-    product: PRODUCTS[1],
-    status: "Draft",
-    storeId: "store-free-artist",
-    views: 0,
-    saves: 0,
-    messages: 0,
-    sponsored: false,
-  },
-  {
-    id: "art-professional-1",
-    product: PRODUCTS[2],
-    status: "Published",
-    storeId: "store-professional-artist",
-    views: 1840,
-    saves: 136,
-    messages: 19,
-    sponsored: false,
-  },
-  {
-    id: "art-professional-2",
-    product: PRODUCTS[3],
-    status: "Published",
-    storeId: "store-professional-artist",
-    views: 1260,
-    saves: 88,
-    messages: 11,
-    sponsored: true,
-  },
-  {
-    id: "art-pro-1",
-    product: PRODUCTS[4] ?? PRODUCTS[0],
-    status: "Published",
-    storeId: "store-pro-artist",
-    views: 3240,
-    saves: 264,
-    messages: 31,
-    sponsored: false,
-  },
-  {
-    id: "art-pro-2",
-    product: PRODUCTS[5] ?? PRODUCTS[1],
-    status: "Pending Review",
-    storeId: "store-pro-artist",
-    views: 96,
-    saves: 9,
-    messages: 2,
-    sponsored: false,
-  },
-  {
-    id: "art-6",
-    product: PRODUCTS[5] ?? PRODUCTS[1],
-    status: "Pending Review",
-    storeId: "store-gallery",
-    views: 82,
-    saves: 4,
-    messages: 1,
-    sponsored: false,
-  },
-] as const;
-
-export const ARTWORKS: Artwork[] = artworkSeeds.map(
-  ({ id, product, status, storeId, views, saves, messages, sponsored }, index) => ({
-    id,
-    storeId,
-    creatorName: storeId === "store-gallery" ? "ArtDera Contemporary Gallery" : "Areeba Hasan",
-    slug: product.slug,
-    title: product.title,
-    description: product.description,
-    category: product.categorySlug.replace(/-/g, " "),
-    medium: product.medium,
-    style: index % 2 ? "Minimal" : "Contemporary",
-    subject: index % 2 ? "Landscape" : "Abstract",
-    year: product.year,
-    kind:
-      product.kind === "Limited Edition"
-        ? "Limited Edition"
-        : product.kind === "Original"
-          ? "Original"
-          : "Print",
-    price: product.price,
-    dimensions: product.dimensions,
-    weightKg: 2.4 + index,
-    framed: product.framed,
-    orientation: index % 3 === 0 ? "Portrait" : index % 3 === 1 ? "Landscape" : "Square",
-    images: product.images.map((url, imageIndex) => ({
-      id: `${id}-img-${imageIndex}`,
-      url,
-      alt: `${product.title} view ${imageIndex + 1}`,
-      isPrimary: imageIndex === 0,
-    })),
-    status,
-    quantity: status === "Sold" ? 0 : 1,
-    domesticShipping: true,
-    internationalShipping: index % 2 === 0,
-    certificate: true,
-    tags: ["pakistani art", product.medium.toLowerCase(), product.categorySlug],
-    customOrders: index % 2 === 0,
-    views,
-    saves,
-    messages,
-    sponsored,
-  }),
-);
-
-export const ORDERS: Order[] = [
-  {
-    id: "order-1",
-    orderNumber: "AD-260718-1042",
-    buyerId: "user-buyer",
-    sellerId: "user-artist",
-    items: [
-      {
-        id: "item-1",
-        artworkId: "art-4",
-        title: ARTWORKS[3].title,
-        price: ARTWORKS[3].price,
-        quantity: 1,
-        image: ARTWORKS[3].images[0].url,
-      },
-    ],
-    status: "Preparing",
-    subtotal: ARTWORKS[3].price,
-    discount: 0,
-    shipping: 3200,
-    packaging: 1800,
-    commission: Math.round(ARTWORKS[3].price * 0.015),
-    total: ARTWORKS[3].price + 5000,
-    deliveryCity: "Islamabad",
-    createdAt: "2026-07-16",
-    trackingNumber: "DEMO-PAK-832109",
-  },
-  {
-    id: "order-2",
-    orderNumber: "AD-260704-0988",
-    buyerId: "buyer-2",
-    sellerId: "user-artist",
-    items: [
-      {
-        id: "item-2",
-        artworkId: "art-2",
-        title: ARTWORKS[1].title,
-        price: ARTWORKS[1].price,
-        quantity: 1,
-        image: ARTWORKS[1].images[0].url,
-      },
-    ],
-    status: "Completed",
-    subtotal: ARTWORKS[1].price,
-    discount: 2500,
-    shipping: 2800,
-    packaging: 1400,
-    commission: Math.round(ARTWORKS[1].price * 0.015),
-    total: ARTWORKS[1].price + 1700,
-    deliveryCity: "Rawalpindi",
-    createdAt: "2026-07-04",
-    trackingNumber: "DEMO-PAK-721842",
-  },
-];
-
-export const CONVERSATIONS: Conversation[] = [
-  {
-    id: "conversation-1",
-    participantIds: ["user-buyer", "user-artist"],
-    artworkId: "art-1",
-    lastMessageAt: "2026-07-19T11:24:00Z",
-    unreadCount: 2,
-    status: "Active",
-  },
-  {
-    id: "conversation-2",
-    participantIds: ["buyer-2", "user-artist"],
-    artworkId: "art-2",
-    lastMessageAt: "2026-07-18T15:10:00Z",
-    unreadCount: 0,
-    status: "Active",
-  },
-];
-
-export const MESSAGES: Message[] = [
-  {
-    id: "message-1",
-    conversationId: "conversation-1",
-    senderId: "user-buyer",
-    body: "Hello, could you confirm whether the work arrives ready to hang?",
-    createdAt: "2026-07-19T11:18:00Z",
-    read: true,
-  },
-  {
-    id: "message-2",
-    conversationId: "conversation-1",
-    senderId: "user-artist",
-    body: "Yes — the hanging hardware is fitted. I can also share a short artwork video here.",
-    createdAt: "2026-07-19T11:20:00Z",
-    read: true,
-  },
-  {
-    id: "message-3",
-    conversationId: "conversation-1",
-    senderId: "user-buyer",
-    body: "That would be helpful. Would you consider an offer of Rs. 72,000?",
-    createdAt: "2026-07-19T11:24:00Z",
-    read: false,
-  },
-];
-
-export const PROMOTIONS: Promotion[] = [
-  {
-    id: "promotion-1",
-    artworkId: "art-1",
-    placementId: "boost-7",
-    status: "Active",
-    startDate: "2026-07-16",
-    endDate: "2026-07-23",
-    price: 699,
-    impressions: 6840,
-    clicks: 326,
-    saves: 41,
-    messages: 9,
-    conversions: 1,
-  },
-  {
-    id: "promotion-2",
-    artworkId: "art-5",
-    placementId: "homepage",
-    status: "Pending",
-    startDate: "2026-07-24",
-    endDate: "2026-07-31",
-    price: 4999,
-    impressions: 0,
-    clicks: 0,
-    saves: 0,
-    messages: 0,
-    conversions: 0,
-  },
-];
-
-export const SHIPMENTS: Shipment[] = [
-  {
-    id: "shipment-1",
-    orderId: "order-1",
-    status: "Packaging Required",
-    courier: "Courier connection pending",
-    trackingNumber: "DEMO-PAK-832109",
-    pickupCity: "Lahore",
-    deliveryCity: "Islamabad",
-    estimatedCost: 3200,
-    updatedAt: "2026-07-18",
-  },
-];
-
-export const PAYOUTS: Payout[] = [
-  {
-    id: "payout-1",
-    sellerId: "user-artist",
-    orderId: "order-1",
-    gross: ARTWORKS[3].price,
-    commission: Math.round(ARTWORKS[3].price * 0.015),
-    shippingDeduction: 0,
-    taxEstimate: 1150,
-    processingDeduction: 840,
-    refundAdjustment: 0,
-    net: ARTWORKS[3].price - Math.round(ARTWORKS[3].price * 0.015) - 1990,
-    status: "Pending",
-    estimatedDate: "After delivery + 5–7 working days",
-  },
-];
-
-export const STAFF: StaffMember[] = [
-  {
-    id: "staff-1",
-    galleryId: "store-gallery",
-    name: "Mariam Raza",
-    email: "mariam@example.demo",
-    role: "Gallery Owner",
-    permissions: ["all"],
-    status: "Active",
-  },
-  {
-    id: "staff-2",
-    galleryId: "store-gallery",
-    name: "Sana Javed",
-    email: "sana@example.demo",
-    role: "Curator",
-    permissions: ["artworks", "artists", "exhibitions"],
-    status: "Active",
-  },
-  {
-    id: "staff-3",
-    galleryId: "store-gallery",
-    name: "Bilal Noor",
-    email: "bilal@example.demo",
-    role: "Inventory Staff",
-    permissions: ["artworks", "inventory", "shipping"],
-    status: "Invited",
-  },
-];
-
-export const EXHIBITIONS: Exhibition[] = [
-  {
-    id: "exhibition-1",
-    galleryId: "store-gallery",
-    name: "Lines of Belonging",
-    description: "New painting, print and photographic work on memory, place and movement.",
-    venue: "Karachi and online",
-    startDate: "2026-08-08",
-    endDate: "2026-09-12",
-    artistIds: ["managed-1", "managed-2"],
-    artworkIds: ["art-5", "art-6"],
-    coverImage: IMAGES.heroInterior,
-    format: "Hybrid",
-    published: true,
-  },
-];
-
-export const CUSTOMERS: CustomerRecord[] = [
-  {
-    id: "customer-1",
-    sellerId: "user-artist",
-    buyerName: "Hamza A.",
-    completedOrders: 2,
-    totalSpending: 186000,
-    lastPurchase: "2026-07-04",
-    favouriteCategory: "Abstract",
-    notes: "Prefers larger landscape-format work.",
-    tags: ["Collector", "Returning"],
-    followUpAt: "2026-08-04",
-    city: "Islamabad",
-    country: "Pakistan",
-    marketingConsent: true,
-    contactVisible: true,
-  },
-  {
-    id: "customer-2",
-    sellerId: "user-artist",
-    buyerName: "Ayesha K.",
-    completedOrders: 0,
-    totalSpending: 0,
-    lastPurchase: "—",
-    favouriteCategory: "Calligraphy",
-    notes: "Contact remains protected until an order is completed.",
-    tags: ["Enquiry"],
-    city: "Peshawar",
-    country: "Pakistan",
-    marketingConsent: false,
-    contactVisible: false,
-  },
-];
-
-export const REVIEWS: Review[] = [
-  {
-    id: "review-1",
-    orderId: "order-2",
-    artworkId: "art-2",
-    buyerId: "buyer-2",
-    rating: 5,
-    title: "Even better in the room",
-    body: "The colours were accurately represented and the packing was careful.",
-    status: "Published",
-    createdAt: "2026-07-15",
-  },
-];
-
-export const VERIFICATIONS: VerificationRequest[] = [
-  {
-    id: "verification-artist",
-    sellerId: "user-artist",
-    type: "Artist",
-    identityStatus: "Approved",
-    portfolioStatus: "Approved",
-    phoneVerified: true,
-    emailVerified: true,
-    ownershipDeclared: true,
-    submittedAt: "2026-02-02",
-  },
-  {
-    id: "verification-gallery",
-    sellerId: "user-gallery",
-    type: "Gallery",
-    identityStatus: "Approved",
-    portfolioStatus: "Approved",
-    phoneVerified: true,
-    emailVerified: true,
-    ownershipDeclared: true,
-    registrationStatus: "Approved",
-    submittedAt: "2025-11-10",
-  },
-];
-
-export const NOTIFICATIONS: Notification[] = [
-  {
-    id: "notification-1",
-    userId: "user-artist",
-    type: "New message",
-    title: "New offer on your artwork",
-    body: "Hamza sent an offer for your featured work.",
-    read: false,
-    createdAt: "2026-07-19T11:24:00Z",
-    href: "/dashboard/messages",
-  },
-  {
-    id: "notification-2",
-    userId: "user-artist",
-    type: "Order update",
-    title: "Order is ready to prepare",
-    body: "Order AD-260718-1042 is confirmed.",
-    read: false,
-    createdAt: "2026-07-18T09:30:00Z",
-    href: "/dashboard/orders",
-  },
-  {
-    id: "notification-3",
-    userId: "user-buyer",
-    type: "Order shipped",
-    title: "Your order is being prepared",
-    body: "The artist has started preparing your artwork.",
-    read: true,
-    createdAt: "2026-07-18T10:02:00Z",
-    href: "/account/orders",
-  },
-];
-
-export const ANALYTICS: AnalyticsRecord[] = Array.from({ length: 7 }, (_, index) => ({
-  id: `analytics-${index}`,
-  storeId: "store-artist",
-  date: `2026-07-${String(13 + index).padStart(2, "0")}`,
-  storeViews: [146, 190, 172, 248, 286, 261, 318][index],
-  artworkViews: [420, 512, 488, 690, 742, 701, 886][index],
-  uniqueVisitors: [102, 130, 118, 171, 202, 188, 226][index],
-  saves: [8, 12, 9, 18, 21, 17, 26][index],
-  messages: [2, 3, 2, 5, 4, 3, 7][index],
-  offers: [0, 1, 0, 1, 1, 0, 2][index],
-  videoRequests: index === 5 ? 1 : 0,
-  orders: index === 4 || index === 6 ? 1 : 0,
-  revenue: index === 4 ? 84000 : index === 6 ? 72000 : 0,
-  source: [
-    "Direct",
-    "Instagram",
-    "ArtDera search",
-    "Google",
-    "Collections",
-    "Direct",
-    "ArtDera search",
-  ][index],
-  city: ["Lahore", "Karachi", "Islamabad", "Rawalpindi", "Multan", "Faisalabad", "Peshawar"][index],
-  country: "Pakistan",
-}));
-
-export const AUDIT_LOG: AuditLog[] = [
-  {
-    id: "audit-1",
-    actorId: "user-admin",
-    action: "approved",
-    entityType: "Promotion",
-    entityId: "promotion-1",
-    summary: "Approved 7-day artwork boost after placement review.",
-    createdAt: "2026-07-15T10:14:00Z",
-  },
-  {
-    id: "audit-2",
-    actorId: "user-admin",
-    action: "requested_changes",
-    entityType: "Artwork",
-    entityId: "art-6",
-    summary: "Requested a clearer certificate image before publication.",
-    createdAt: "2026-07-18T14:42:00Z",
-  },
-];
+// These arrays are hydrated in-place from /api/bootstrap. Keeping their identities stable lets the
+// existing UI consume live API state without retaining a second browser-side source of truth.
+export const SEEDED_USERS: User[] = [];
+export const STORES: Store[] = [];
+export const ARTWORKS: Artwork[] = [];
+export const ORDERS: Order[] = [];
+export const CONVERSATIONS: Conversation[] = [];
+export const MESSAGES: Message[] = [];
+export const PROMOTIONS: Promotion[] = [];
+export const SHIPMENTS: Shipment[] = [];
+export const PAYOUTS: Payout[] = [];
+export const STAFF: StaffMember[] = [];
+export const EXHIBITIONS: Exhibition[] = [];
+export const CUSTOMERS: CustomerRecord[] = [];
+export const REVIEWS: Review[] = [];
+export const VERIFICATIONS: VerificationRequest[] = [];
+export const NOTIFICATIONS: Notification[] = [];
+export const ANALYTICS: AnalyticsRecord[] = [];
+export const AUDIT_LOG: AuditLog[] = [];
 
 export const ADMIN_METRICS = {
-  totalUsers: 6420,
-  activeArtists: 884,
-  galleries: 46,
-  buyers: 5490,
-  publishedArtworks: 12384,
-  pendingArtworks: 74,
-  pendingVerification: 29,
-  orders: 1842,
-  gmv: 68400000,
-  subscriptionRevenue: 3420000,
-  commissionRevenue: 918000,
-  promotionRevenue: 526000,
-  openDisputes: 7,
-  pendingPayouts: 42,
+  totalUsers: 0,
+  activeArtists: 0,
+  galleries: 0,
+  buyers: 0,
+  publishedArtworks: 0,
+  pendingArtworks: 0,
+  pendingVerification: 0,
+  orders: 0,
+  openDisputes: 0,
+  pendingPayouts: 0,
+  gmv: 0,
+  subscriptionRevenue: 0,
+  commissionRevenue: 0,
+  promotionRevenue: 0,
 };
+
+function replace<T>(target: T[], source: T[] | undefined) {
+  target.splice(0, target.length, ...(source ?? []));
+}
+
+export function hydrateMarketplaceData(input: {
+  users?: User[];
+  stores?: Store[];
+  artworks?: Artwork[];
+  orders?: Order[];
+  conversations?: Conversation[];
+  messages?: Message[];
+  promotions?: Promotion[];
+  shipments?: Shipment[];
+  payouts?: Payout[];
+  staff?: StaffMember[];
+  exhibitions?: Exhibition[];
+  customers?: CustomerRecord[];
+  reviews?: Review[];
+  verifications?: VerificationRequest[];
+  notifications?: Notification[];
+  analytics?: AnalyticsRecord[];
+  auditLogs?: AuditLog[];
+}) {
+  if (input.users) replace(SEEDED_USERS, input.users);
+  if (input.stores) replace(STORES, input.stores);
+  if (input.artworks) replace(ARTWORKS, input.artworks);
+  if (input.orders) replace(ORDERS, input.orders);
+  if (input.conversations) replace(CONVERSATIONS, input.conversations);
+  if (input.messages) replace(MESSAGES, input.messages);
+  if (input.promotions) replace(PROMOTIONS, input.promotions);
+  if (input.shipments) replace(SHIPMENTS, input.shipments);
+  if (input.payouts) replace(PAYOUTS, input.payouts);
+  if (input.staff) replace(STAFF, input.staff);
+  if (input.exhibitions) replace(EXHIBITIONS, input.exhibitions);
+  if (input.customers) replace(CUSTOMERS, input.customers);
+  if (input.reviews) replace(REVIEWS, input.reviews);
+  if (input.verifications) replace(VERIFICATIONS, input.verifications);
+  if (input.notifications) replace(NOTIFICATIONS, input.notifications);
+  if (input.analytics) replace(ANALYTICS, input.analytics);
+  if (input.auditLogs) replace(AUDIT_LOG, input.auditLogs);
+}
+
+export function hydrateAdminMetrics(metrics: Record<string, number>) {
+  Object.assign(ADMIN_METRICS, {
+    totalUsers: metrics.totalUsers ?? 0,
+    activeArtists: metrics.artists ?? 0,
+    galleries: metrics.galleries ?? 0,
+    buyers: metrics.buyers ?? 0,
+    publishedArtworks: metrics.artworks ?? 0,
+    pendingArtworks: metrics.pendingModeration ?? 0,
+    pendingVerification: metrics.pendingVerification ?? 0,
+    orders: metrics.orders ?? 0,
+    openDisputes: metrics.openDisputes ?? 0,
+    pendingPayouts: metrics.pendingPayouts ?? 0,
+    gmv: metrics.gmv ?? 0,
+    subscriptionRevenue: metrics.subscriptionRevenue ?? 0,
+    commissionRevenue: metrics.commissionRevenue ?? 0,
+    promotionRevenue: metrics.promotionRevenue ?? 0,
+  });
+}

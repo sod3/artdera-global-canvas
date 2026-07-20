@@ -53,9 +53,9 @@ function ArtistVerify() {
     refs.current[Math.min(5, next.length)]?.focus();
   }
 
-  function verify() {
+  async function verify() {
     if (!user || !selection) return;
-    const result = VerificationService.verify(user.id, digits.join(""));
+    const result = await VerificationService.verify(user.id, digits.join(""));
     if (result.error) {
       setError("Invalid code. Use the six-digit demo OTP shown below.");
       return;

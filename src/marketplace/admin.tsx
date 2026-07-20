@@ -39,7 +39,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./auth";
 import {
@@ -54,6 +54,7 @@ import {
 import { formatPKR, PLAN_ORDER, PLANS, PROMOTION_PLACEMENTS } from "./config";
 import type { SubscriptionPlan } from "./types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { AdminService } from "./services";
 
 const adminNavigation = [
   ["Overview", "overview", LayoutDashboard],
@@ -103,8 +104,8 @@ export function AdminDashboard({ section = "overview" }: { section?: string }) {
           <LockKeyhole className="mx-auto h-9 w-9 text-[var(--oxblood)]" />
           <h1 className="mt-5 font-display text-4xl">Admin access required.</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            The admin route is intentionally absent from public navigation. Frontend role checks
-            must be replaced by backend authorization before production.
+            This workspace requires an authenticated admin session. Every operation is authorized
+            again by the API and recorded in the audit trail.
           </p>
           <Link to="/auth/login" className="btn-primary mt-6">
             Sign in
@@ -355,7 +356,7 @@ function UserManagement({ type }: { type: string }) {
         <div>
           <div className="eyebrow">Account directory</div>
           <h2 className="mt-2 font-display text-3xl">
-            {rows.length} demo {type}
+            {rows.length} {type}
           </h2>
         </div>
         <div className="relative">
@@ -402,11 +403,13 @@ function UserManagement({ type }: { type: string }) {
                       View
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={() => void (async () => {
                         const next = statuses[user.id] === "Suspended" ? "Active" : "Suspended";
+                        const result = await AdminService.userStatus(user.id, next.toLowerCase() as "active" | "suspended");
+                        if (result.error) return toast.error(result.error.message);
                         setStatuses((current) => ({ ...current, [user.id]: next }));
                         toast.success(`Account ${next.toLowerCase()}`);
-                      }}
+                      })()}
                       className="admin-action"
                     >
                       {statuses[user.id] === "Suspended" ? "Reactivate" : "Suspend"}
@@ -428,11 +431,14 @@ function ArtworkModeration() {
   const [active, setActive] = useState(
     ARTWORKS.find((item) => item.status === "Pending Review") ?? ARTWORKS[0],
   );
-  function act(status: string) {
+  async function act(status: string) {
+    const decision = status === "Published" ? "approve" : "reject";
+    const reason = decision === "reject" ? window.prompt("Reason for this moderation decision")?.trim() : undefined;
+    if (decision === "reject" && !reason) return;
+    const result = await AdminService.moderateArtwork(active.id, decision, reason);
+    if (result.error) return toast.error(result.error.message);
     setStates((current) => ({ ...current, [active.id]: status }));
-    toast.success(`${active.title}: ${status}`, {
-      description: "Admin action added to the demo audit log.",
-    });
+    toast.success(`${active.title}: ${status}`, { description: "The decision was saved and added to the audit log." });
   }
   return (
     <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
@@ -486,13 +492,13 @@ function ArtworkModeration() {
               ))}
             </dl>
             <div className="mt-6 flex flex-wrap gap-2">
-              <button onClick={() => act("Published")} className="btn-primary">
+              <button onClick={() => void act("Published")} className="btn-primary">
                 Approve
               </button>
-              <button onClick={() => act("Changes Requested")} className="btn-ghost">
+              <button onClick={() => void act("Changes Requested")} className="btn-ghost">
                 Request changes
               </button>
-              <button onClick={() => act("Rejected")} className="btn-ghost">
+              <button onClick={() => void act("Rejected")} className="btn-ghost">
                 Reject
               </button>
               <button onClick={() => act("Duplicate Flagged")} className="btn-ghost">
@@ -512,61 +518,48 @@ function ArtworkModeration() {
   );
 }
 function VerificationQueue() {
-  const [status, setStatus] = useState("Pending Review");
+  const [requests, setRequests] = useState<Array<Record<string, any>>>([]);
+  const [active, setActive] = useState<Record<string, any> | undefined>();
+  useEffect(() => {
+    void AdminService.resource("verifications").then((result) => {
+      if (result.data) {
+        setRequests(result.data.items);
+        setActive(result.data.items[0]);
+      }
+    });
+  }, []);
+  const decide = async (decision: "approve" | "reject" | "request_changes" | "remove") => {
+    if (!active) return;
+    const reason = decision === "approve" || decision === "remove" ? undefined : window.prompt("Reason for this decision")?.trim();
+    if ((decision === "reject" || decision === "request_changes") && !reason) return;
+    const result = await AdminService.verification(active.id, decision, reason);
+    if (result.error) return toast.error(result.error.message);
+    const status = decision === "approve" ? "approved" : decision === "request_changes" ? "changes_requested" : decision === "remove" ? "not_submitted" : "rejected";
+    setActive({ ...active, status });
+    setRequests((items) => items.map((item) => item.id === active.id ? { ...item, status } : item));
+    toast.success("Verification decision saved");
+  };
+  if (!active) return <AdminPanel><div className="eyebrow">Verification queue</div><p className="mt-4 text-sm text-muted-foreground">No verification requests are waiting for review.</p></AdminPanel>;
   return (
     <div className="grid gap-5 lg:grid-cols-[0.75fr_1.25fr]">
       <AdminPanel>
-        <div className="eyebrow">29 pending requests</div>
-        <button className="mt-4 w-full rounded-xl bg-[var(--ivory)] p-4 text-left">
-          <strong>Areeba Hasan</strong>
-          <div className="mt-1 text-xs text-muted-foreground">Professional Artist · Lahore</div>
-          <div className="mt-2">
-            <AdminStatus status={status} />
-          </div>
-        </button>
+        <div className="eyebrow">{requests.length} verification requests</div>
+        <div className="mt-4 space-y-2">{requests.map((request) => <button key={request.id} onClick={() => setActive(request)} className={`w-full rounded-xl p-4 text-left ${active.id === request.id ? "bg-[var(--ivory)]" : "border border-[var(--color-border)]"}`}><strong>{request.type ?? "Seller"} verification</strong><div className="mt-1 text-xs text-muted-foreground">Account {String(request.userId ?? "").slice(-6)}</div><div className="mt-2"><AdminStatus status={String(request.status ?? "Pending Review").replaceAll("_", " ")} /></div></button>)}</div>
       </AdminPanel>
       <AdminPanel>
         <div className="flex items-start justify-between">
           <div>
-            <div className="eyebrow">Artist verification</div>
-            <h2 className="mt-2 font-display text-4xl">Areeba Hasan</h2>
+            <div className="eyebrow">Seller verification</div>
+            <h2 className="mt-2 font-display text-4xl">{String(active.type ?? "Seller").replace(/^./, (value) => value.toUpperCase())} request</h2>
           </div>
-          <AdminStatus status={status} />
+          <AdminStatus status={String(active.status ?? "pending").replaceAll("_", " ")} />
         </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          {[
-            ["Email", "Verified"],
-            ["Phone", "Verified"],
-            ["Identity information", "Submitted"],
-            ["Portfolio", "12 works"],
-            ["Ownership declaration", "Confirmed"],
-            ["Complaints", "None"],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl bg-[var(--ivory)] p-4">
-              <div className="text-[11px] text-muted-foreground">{label}</div>
-              <div className="mt-2 text-sm font-semibold">{value}</div>
-            </div>
-          ))}
-        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[var(--ivory)] p-4"><div className="text-[11px] text-muted-foreground">Request ID</div><div className="mt-2 break-all text-sm font-semibold">{active.id}</div></div><div className="rounded-xl bg-[var(--ivory)] p-4"><div className="text-[11px] text-muted-foreground">Submitted</div><div className="mt-2 text-sm font-semibold">{active.createdAt ? new Date(active.createdAt).toLocaleString() : "Not available"}</div></div></div>
         <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            onClick={() => {
-              setStatus("Approved");
-              toast.success("Verification approved");
-            }}
-            className="btn-primary"
-          >
-            Approve verification
-          </button>
-          <button onClick={() => setStatus("Changes Requested")} className="btn-ghost">
-            Request changes
-          </button>
-          <button onClick={() => setStatus("Rejected")} className="btn-ghost">
-            Reject
-          </button>
-          <button onClick={() => setStatus("Not Verified")} className="btn-ghost">
-            Remove badge
-          </button>
+          <button onClick={() => void decide("approve")} className="btn-primary">Approve verification</button>
+          <button onClick={() => void decide("request_changes")} className="btn-ghost">Request changes</button>
+          <button onClick={() => void decide("reject")} className="btn-ghost">Reject</button>
+          <button onClick={() => void decide("remove")} className="btn-ghost">Remove badge</button>
         </div>
       </AdminPanel>
     </div>
@@ -576,6 +569,14 @@ function PromotionModeration() {
   const [statuses, setStatuses] = useState<Record<string, string>>(
     Object.fromEntries(PROMOTIONS.map((item) => [item.id, item.status])),
   );
+  const decide = async (id: string, decision: "approve" | "reject" | "cancel") => {
+    const reason = decision === "approve" ? undefined : window.prompt("Reason for this decision")?.trim();
+    if (decision !== "approve" && !reason) return;
+    const result = await AdminService.promotion(id, decision, reason);
+    if (result.error) return toast.error(result.error.message);
+    setStatuses((current) => ({ ...current, [id]: decision === "approve" ? "Scheduled" : decision === "reject" ? "Rejected" : "Cancelled" }));
+    toast.success("Promotion decision saved");
+  };
   return (
     <AdminPanel>
       <div className="eyebrow">Sponsored placement requests</div>
@@ -616,38 +617,18 @@ function PromotionModeration() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
-                  onClick={() => {
-                    setStatuses((current) => ({ ...current, [promotion.id]: "Scheduled" }));
-                    toast.success("Placement approved and scheduled");
-                  }}
+                  onClick={() => void decide(promotion.id, "approve")}
                   className="admin-action"
                 >
                   Approve
                 </button>
                 <button
-                  onClick={() =>
-                    setStatuses((current) => ({ ...current, [promotion.id]: "Rejected" }))
-                  }
+                  onClick={() => void decide(promotion.id, "reject")}
                   className="admin-action"
                 >
                   Reject
                 </button>
-                <button
-                  onClick={() =>
-                    setStatuses((current) => ({ ...current, [promotion.id]: "Active" }))
-                  }
-                  className="admin-action"
-                >
-                  Mark active
-                </button>
-                <button
-                  onClick={() =>
-                    setStatuses((current) => ({ ...current, [promotion.id]: "Completed" }))
-                  }
-                  className="admin-action"
-                >
-                  Complete
-                </button>
+                <button onClick={() => void decide(promotion.id, "cancel")} className="admin-action">Cancel</button>
               </div>
             </article>
           );
@@ -667,8 +648,8 @@ function PlansManagement() {
     <div className="space-y-5">
       <div className="flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        Plan configuration is centralized. Changes here are local UI simulations and do not process
-        subscription payments.
+        Plan configuration is loaded from MongoDB. Changes affect new selections and are recorded
+        in the admin audit trail; existing subscriptions retain their stored snapshot.
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         {PLAN_ORDER.map((id) => {
@@ -762,7 +743,17 @@ function PlansManagement() {
                 </AdminField>
               </div>
               <button
-                onClick={() => toast.success(`${plan.name} plan saved in demo`)}
+                onClick={() => void (async () => {
+                  const result = await AdminService.plan(plan.id, {
+                    monthlyPrice: plan.monthlyPrice,
+                    annualPrice: plan.annualPrice ?? null,
+                    listingLimit: plan.listingLimit,
+                    commissionRate: plan.commission,
+                    features: plan.features,
+                    permissions: plan.allowedModules,
+                  });
+                  result.error ? toast.error(result.error.message) : toast.success(`${plan.name} plan saved`);
+                })()}
                 className="btn-primary mt-5"
               >
                 Save plan
@@ -1032,13 +1023,38 @@ function AdminSecurity() {
 }
 function GenericAdminSection({ section }: { section: string }) {
   const label = adminNavigation.find((item) => item[1] === section)?.[0] ?? section;
+  const [records, setRecords] = useState<Array<Record<string, any>>>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const resourceMap: Record<string, string> = {
+    "messages-reports": "conversations",
+    categories: "categories",
+    collections: "collections",
+    exhibitions: "exhibitions",
+    "corporate-leads": "leads",
+    content: "content",
+    notifications: "notifications",
+    support: "support",
+    analytics: "analytics",
+    stores: "stores",
+  };
+  useEffect(() => {
+    setLoading(true);
+    void AdminService.resource(resourceMap[section] ?? section).then((result) => {
+      if (result.data) {
+        setRecords(result.data.items);
+        setTotal(result.data.total);
+      } else toast.error(result.error?.message ?? `${label} could not be loaded`);
+      setLoading(false);
+    });
+  }, [section]);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          ["Active records", "128"],
-          ["Needs attention", "7"],
-          ["Updated today", "34"],
+          ["Database records", total.toLocaleString()],
+          ["Loaded on this page", records.length.toLocaleString()],
+          ["Page size", "50"],
         ].map(([title, value]) => (
           <AdminPanel key={title} compact>
             <div className="text-xs text-muted-foreground">{title}</div>
@@ -1052,38 +1068,26 @@ function GenericAdminSection({ section }: { section: string }) {
             <div className="eyebrow">{label}</div>
             <h2 className="mt-2 font-display text-3xl">Manage {label.toLowerCase()}</h2>
           </div>
-          <button
-            onClick={() => toast.success(`New ${label.toLowerCase()} demo record created`)}
-            className="btn-primary"
-          >
-            Create new
-          </button>
         </div>
         <div className="mt-5 space-y-3">
-          {Array.from({ length: 5 }, (_, index) => (
+          {loading ? <p className="text-sm text-muted-foreground">Loading records…</p> : records.length ? records.map((record, index) => (
             <div
-              key={index}
+              key={String(record.id ?? index)}
               className="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-4"
             >
               <div>
                 <div className="text-sm font-semibold">
-                  {label} record {index + 1}
+                  {record.name ?? record.title ?? record.subject ?? record.ticketNumber ?? record.slug ?? record.action ?? `${label} record ${index + 1}`}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Realistic demo state · Updated today
+                  {record.status ? String(record.status).replaceAll("_", " ") : `ID ${String(record.id ?? "").slice(-8)}`}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <AdminStatus status={index === 0 ? "Needs review" : "Active"} />
-                <button
-                  onClick={() => toast.info(`${label} record opened`)}
-                  className="admin-action"
-                >
-                  Open
-                </button>
+                <AdminStatus status={record.status ? String(record.status).replaceAll("_", " ") : "Stored"} />
               </div>
             </div>
-          ))}
+          )) : <p className="text-sm text-muted-foreground">No {label.toLowerCase()} records were found.</p>}
         </div>
       </AdminPanel>
     </div>

@@ -55,6 +55,7 @@ function ArtistSignup() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
     const params = new URLSearchParams(window.location.search);
     const queryPlan = params.get("plan");
     if (!isPlanId(queryPlan)) {
@@ -63,18 +64,29 @@ function ArtistSignup() {
       return;
     }
     const cycle = validBillingCycle(queryPlan, params.get("billing"));
-    const selection = SubscriptionService.selectPlan(queryPlan, cycle);
-    const saved = SignupProgressService.read<SignupDraft>(blank);
-    setPlanId(selection.planId);
-    setBilling(selection.billingCycle);
-    setAccount({
-      ...saved,
-      sellerType:
-        selection.planId === "gallery" && !["Gallery", "Art Business"].includes(saved.sellerType)
-          ? "Gallery"
-          : saved.sellerType,
+    void SubscriptionService.selectPlan(queryPlan, cycle).then((result) => {
+      if (!active) return;
+      if (result.error || !result.data) {
+        setError(result.error?.message ?? "That plan is not available.");
+        setSelectionReady(true);
+        return;
+      }
+      const selection = result.data;
+      const saved = SignupProgressService.read<SignupDraft>(blank);
+      setPlanId(selection.planId);
+      setBilling(selection.billingCycle);
+      setAccount({
+        ...saved,
+        sellerType:
+          selection.planId === "gallery" && !["Gallery", "Art Business"].includes(saved.sellerType)
+            ? "Gallery"
+            : saved.sellerType,
+      });
+      setSelectionReady(true);
     });
-    setSelectionReady(true);
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

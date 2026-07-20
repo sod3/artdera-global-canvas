@@ -3,8 +3,9 @@ import { Check, CheckCircle2, Eye, EyeOff, Info } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Logo } from "@/components/site/Logo";
 import { IMAGES } from "@/lib/artdera";
-import { AuthService, UserService } from "@/marketplace/services";
+import { AuthService, UserService, VerificationService } from "@/marketplace/services";
 import { DEMO_OTP } from "@/marketplace/config";
+import { useAuth } from "@/marketplace/auth";
 
 export const Route = createFileRoute("/auth/signup")({
   head: () => ({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/auth/signup")({
   component: Signup,
 });
 function Signup() {
+  const { refresh } = useAuth();
   const [stage, setStage] = useState<"account" | "verify" | "done">("account");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +36,8 @@ function Signup() {
       form.password === form.confirm,
     [form],
   );
-  function submit(event: FormEvent) {
+  const [createdUserId, setCreatedUserId] = useState("");
+  async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     if (!valid)
@@ -42,10 +45,6 @@ function Signup() {
         "Use at least 8 characters with uppercase, lowercase and a number, then confirm the same password.",
       );
     if (!form.terms) return setError("Please agree to the Terms and Privacy Policy.");
-    setStage("verify");
-  }
-  async function verify() {
-    if (otp !== DEMO_OTP) return setError(`Use the demo code ${DEMO_OTP}.`);
     const result = await UserService.create({
       fullName: form.name,
       email: form.email,
@@ -53,10 +52,21 @@ function Signup() {
       city: form.city,
       country: "Pakistan",
       role: "buyer",
+      termsAccepted: form.terms,
+      privacyAccepted: form.terms,
     });
     if (result.error) return setError(result.error.message);
+    if (!result.data) return setError("Your account could not be created.");
+    setCreatedUserId(result.data.id);
+    await refresh();
+    setStage("verify");
+  }
+  async function verify() {
+    if (!createdUserId) return setError("Create your account before entering a code.");
+    const result = await VerificationService.verify(createdUserId, otp);
+    if (result.error) return setError(result.error.message);
     if (result.data) {
-      AuthService.startSession(result.data);
+      await refresh();
       setStage("done");
       window.setTimeout(() => (window.location.href = "/account"), 700);
     }
@@ -87,12 +97,13 @@ function Signup() {
             </div>
           ) : stage === "verify" ? (
             <div className="mt-10">
-              <div className="eyebrow">Demo verification</div>
+              <div className="eyebrow">Email verification</div>
               <h1 className="mt-3 font-display text-4xl">Enter the six-digit code.</h1>
-              <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
-                <Info className="h-4 w-4 shrink-0" />
-                Use <strong>{DEMO_OTP}</strong>. No real email or SMS was sent.
-              </div>
+              {DEMO_OTP && (
+                <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
+                  <Info className="h-4 w-4 shrink-0" /> Development verification code: <strong>{DEMO_OTP}</strong>
+                </div>
+              )}
               <input
                 value={otp}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check, CheckCircle2, LockKeyhole } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { AuthService } from "@/marketplace/services";
 
 export const Route = createFileRoute("/auth/reset")({
   head: () => ({
@@ -11,6 +12,9 @@ export const Route = createFileRoute("/auth/reset")({
 function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const valid = useMemo(
     () =>
@@ -21,9 +25,13 @@ function ResetPassword() {
       password === confirm,
     [confirm, password],
   );
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (valid) setDone(true);
+    setError("");
+    if (!valid) return;
+    const result = await AuthService.resetPassword(email, code, password);
+    if (result.error) return setError(result.error.message);
+    setDone(true);
   }
   return (
     <div className="container-editorial flex min-h-[65vh] items-center justify-center py-14">
@@ -31,9 +39,9 @@ function ResetPassword() {
         {done ? (
           <div className="text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-[var(--success)]" />
-            <h1 className="mt-5 font-display text-4xl">Demo password updated.</h1>
+            <h1 className="mt-5 font-display text-4xl">Password updated.</h1>
             <p className="mt-3 text-sm text-muted-foreground">
-              No real account credential was changed because the backend is not connected.
+              Your existing sessions were revoked. Sign in again with your new password.
             </p>
             <Link to="/auth/login" className="btn-primary mt-6">
               Return to sign in
@@ -42,9 +50,17 @@ function ResetPassword() {
         ) : (
           <>
             <LockKeyhole className="h-9 w-9 text-[var(--oxblood)]" />
-            <div className="eyebrow mt-6">Demo reset</div>
+            <div className="eyebrow mt-6">Secure reset</div>
             <h1 className="mt-3 font-display text-4xl">Choose a new password.</h1>
             <form onSubmit={submit} className="mt-7 grid gap-5">
+              <label>
+                <span className="eyebrow mb-2 block">Account email</span>
+                <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="art-field" />
+              </label>
+              <label>
+                <span className="eyebrow mb-2 block">Six-digit code</span>
+                <input inputMode="numeric" required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="art-field" />
+              </label>
               <label>
                 <span className="eyebrow mb-2 block">New password</span>
                 <input
@@ -79,8 +95,9 @@ function ResetPassword() {
                   </span>
                 ))}
               </div>
-              <button disabled={!valid} className="btn-primary w-full disabled:opacity-45">
-                Update demo password
+              {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
+              <button disabled={!valid || code.length !== 6 || !email} className="btn-primary w-full disabled:opacity-45">
+                Update password
               </button>
             </form>
           </>

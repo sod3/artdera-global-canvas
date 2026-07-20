@@ -1,4 +1,12 @@
-export const USER_ROLES = ["artist", "gallery", "buyer", "admin"] as const;
+export const USER_ROLES = [
+  "artist",
+  "gallery",
+  "gallery_staff",
+  "buyer",
+  "admin",
+  "moderator",
+  "support",
+] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const ARTWORK_STATUSES = [
@@ -100,6 +108,9 @@ export interface User {
   country: string;
   role: UserRole;
   avatar?: string;
+  status?: "pending_verification" | "active" | "suspended" | "locked" | "deleted";
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
   createdAt: string;
 }
 
@@ -170,6 +181,8 @@ export interface ArtworkImage {
 export interface Artwork {
   id: string;
   storeId: string;
+  artistId?: string;
+  galleryId?: string;
   creatorName: string;
   slug: string;
   title: string;

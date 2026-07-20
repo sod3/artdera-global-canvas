@@ -27,7 +27,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ARTWORKS, STORES } from "@/marketplace/data";
-import { ArtworkService, StoreService } from "@/marketplace/services";
+import { ArtworkService, FollowService, MessageService, ReviewService, StoreService, WishlistService } from "@/marketplace/services";
+import { useAuth } from "@/marketplace/auth";
 import { formatPKR } from "@/marketplace/config";
 import type { Artwork, Store } from "@/marketplace/types";
 
@@ -70,6 +71,7 @@ export const Route = createFileRoute("/store/$slug")({
 
 function Storefront() {
   const { slug } = Route.useParams();
+  const { user } = useAuth();
   const seeded = STORES.find((item) => item.slug === slug);
   const [store, setStore] = useState<Store | undefined>(seeded);
   const [followed, setFollowed] = useState(false);
@@ -77,7 +79,21 @@ function Storefront() {
   const [availability, setAvailability] = useState("Available");
   const [framed, setFramed] = useState(false);
   const [maxPrice, setMaxPrice] = useState(300000);
-  useEffect(() => setStore(StoreService.getBySlug(slug)), [slug]);
+  const [reviews, setReviews] = useState<Array<{ id: string; rating: number; title: string; body: string; sellerResponse?: string; createdAt: string }>>([]);
+  useEffect(() => {
+    StoreService.fetchBySlug(slug).then((result) => {
+      if (result.data) {
+        setStore(result.data.store);
+        void ReviewService.publicForStore(result.data.store.id).then((reviewResult) => reviewResult.data && setReviews(reviewResult.data));
+      }
+    });
+  }, [slug]);
+  useEffect(() => {
+    if (!user || !store) return;
+    void FollowService.list().then((result) => {
+      if (result.data) setFollowed(result.data.some((item) => item.id === store.id));
+    });
+  }, [store?.id, user?.id]);
   const artworks = useMemo(
     () =>
       store
@@ -106,6 +122,13 @@ function Storefront() {
         </a>
       </div>
     );
+  const toggleFollow = async () => {
+    if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+    const result = followed ? await FollowService.unfollow(store.id) : await FollowService.follow(store.id);
+    if (result.error) return toast.error(result.error.message);
+    setFollowed(!followed);
+    toast.success(followed ? "Store unfollowed" : "Store followed");
+  };
   return (
     <div className="pb-20">
       <section className="relative overflow-hidden bg-[var(--ink)] text-[var(--ivory)]">
@@ -148,10 +171,7 @@ function Storefront() {
             </div>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => {
-                  setFollowed((value) => !value);
-                  toast.success(followed ? "Store unfollowed" : "Store followed");
-                }}
+                onClick={() => void toggleFollow()}
                 className={
                   followed
                     ? "btn-primary bg-[var(--terracotta)] !text-[var(--ink)]"
@@ -162,7 +182,7 @@ function Storefront() {
                 {followed ? "Following" : "Follow"}
               </button>
               <ContactDialog store={store} />
-              <VideoDialog />
+              <VideoDialog store={store} artwork={artworks[0]} />
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
@@ -281,6 +301,7 @@ function Storefront() {
                     key={artwork.id}
                     artwork={artwork}
                     sponsored={artwork.sponsored && index % 5 === 0}
+                    canSave={Boolean(user)}
                   />
                 ))}
               </div>
@@ -347,32 +368,30 @@ function Storefront() {
           </div>
           <span className="chip">{store.reviewCount} reviews</span>
         </div>
-        <div className="mt-7 grid gap-4 md:grid-cols-3">
-          {[
-            "The work arrived exactly as described and the packing was thoughtful.",
-            "The artist answered every framing question without pressure.",
-            "A calm buying experience from first message through delivery.",
-          ].map((body, index) => (
+        {reviews.length ? <div className="mt-7 grid gap-4 md:grid-cols-3">
+          {reviews.slice(0, 6).map((review) => (
             <article
-              key={body}
+              key={review.id}
               className="rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5"
             >
               <div className="flex text-amber-500">
-                {Array.from({ length: 5 }, (_, star) => (
+                {Array.from({ length: review.rating }, (_, star) => (
                   <Star key={star} className="h-3.5 w-3.5" fill="currentColor" />
                 ))}
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">“{body}”</p>
-              <div className="mt-5 text-xs font-semibold">Verified buyer {index + 1}</div>
+              {review.title && <h3 className="mt-4 font-semibold">{review.title}</h3>}
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{review.body}</p>
+              <div className="mt-5 text-xs font-semibold">Verified completed-order buyer</div>
+              {review.sellerResponse && <div className="mt-4 rounded-xl bg-[var(--ivory)] p-3 text-xs"><strong>Seller response</strong><p className="mt-1 text-muted-foreground">{review.sellerResponse}</p></div>}
             </article>
           ))}
-        </div>
+        </div> : <p className="mt-7 rounded-2xl bg-[var(--porcelain)] p-6 text-sm text-muted-foreground">No written reviews have been published for this store yet.</p>}
       </section>
     </div>
   );
 }
 
-function StoreArtwork({ artwork, sponsored }: { artwork: Artwork; sponsored: boolean }) {
+function StoreArtwork({ artwork, sponsored, canSave }: { artwork: Artwork; sponsored: boolean; canSave: boolean }) {
   const [saved, setSaved] = useState(false);
   return (
     <article className="group">
@@ -407,7 +426,13 @@ function StoreArtwork({ artwork, sponsored }: { artwork: Artwork; sponsored: boo
           <div className="mt-2 text-sm font-semibold">{formatPKR(artwork.price)}</div>
         </div>
         <button
-          onClick={() => setSaved((value) => !value)}
+          onClick={() => void (async () => {
+            if (!canSave) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+            const result = saved ? await WishlistService.remove(artwork.id) : await WishlistService.save(artwork.id);
+            if (result.error) return toast.error(result.error.message);
+            setSaved(!saved);
+            toast.success(saved ? "Removed from wishlist" : "Saved to wishlist");
+          })()}
           className="flex h-10 w-10 items-center justify-center rounded-full border"
           aria-label={`Save ${artwork.title}`}
         >
@@ -418,8 +443,10 @@ function StoreArtwork({ artwork, sponsored }: { artwork: Artwork; sponsored: boo
   );
 }
 function ContactDialog({ store }: { store: Store }) {
+  const { user } = useAuth();
   const [message, setMessage] = useState("");
   const [type, setType] = useState("Ask a Question");
+  const [sending, setSending] = useState(false);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -468,21 +495,32 @@ function ContactDialog({ store }: { store: Store }) {
             Do not include phone, email, WhatsApp or external payment links.
           </div>
           <button
-            onClick={() => {
+            disabled={sending}
+            onClick={() => void (async () => {
+              if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
               if (!message.trim()) return toast.error("Write a message first.");
-              toast.success(`${type} sent in demo mode`);
+              setSending(true);
+              const result = await MessageService.createConversation(store.id, undefined, `${type}: ${message}`);
+              setSending(false);
+              if (result.error) return toast.error(result.error.message);
+              toast.success(`${type} sent securely`);
               setMessage("");
-            }}
-            className="btn-primary"
+            })()}
+            className="btn-primary disabled:opacity-45"
           >
-            Send securely
+            {sending ? "Sending…" : "Send securely"}
           </button>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-function VideoDialog() {
+function VideoDialog({ store, artwork }: { store: Store; artwork?: Artwork }) {
+  const { user } = useAuth();
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -500,22 +538,33 @@ function VideoDialog() {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label>
             <span className="eyebrow mb-2 block">Preferred date</span>
-            <input type="date" className="art-field" defaultValue="2026-07-25" />
+            <input type="date" className="art-field" value={date} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setDate(event.target.value)} />
           </label>
           <label>
             <span className="eyebrow mb-2 block">Preferred time</span>
-            <input type="time" className="art-field" defaultValue="17:00" />
+            <input type="time" className="art-field" value={time} onChange={(event) => setTime(event.target.value)} />
           </label>
           <label className="sm:col-span-2">
             <span className="eyebrow mb-2 block">Message</span>
-            <textarea rows={4} className="art-field !rounded-xl" />
+            <textarea rows={4} className="art-field !rounded-xl" value={message} onChange={(event) => setMessage(event.target.value)} />
           </label>
         </div>
         <button
-          onClick={() => toast.success("Video consultation requested")}
-          className="btn-primary mt-5"
+          disabled={sending || !artwork}
+          onClick={() => void (async () => {
+            if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+            if (!artwork) return toast.error("This store has no available artwork for a consultation.");
+            if (!date || !time) return toast.error("Choose a preferred date and time.");
+            setSending(true);
+            const conversation = await MessageService.createConversation(store.id, artwork.id);
+            if (conversation.error) { setSending(false); return toast.error(conversation.error.message); }
+            const result = await MessageService.requestConsultation({ conversationId: conversation.data!.id, requestedDate: new Date(`${date}T${time}:00`).toISOString(), requestedTime: time, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, message });
+            setSending(false);
+            result.error ? toast.error(result.error.message) : toast.success("Video consultation requested");
+          })()}
+          className="btn-primary mt-5 disabled:opacity-45"
         >
-          Request consultation
+          {sending ? "Sending request…" : "Request consultation"}
         </button>
       </DialogContent>
     </Dialog>

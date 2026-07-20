@@ -1,28 +1,25 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { getCreator, productsByCreator } from "@/lib/artdera";
 import { ProductCard } from "@/components/site/ProductCard";
+import { toast } from "sonner";
+import { useAuth } from "@/marketplace/auth";
+import { ARTWORKS, STORES } from "@/marketplace/data";
+import { FollowService, MessageService } from "@/marketplace/services";
 
 export const Route = createFileRoute("/creator/$slug")({
-  loader: ({ params }) => {
+  head: ({ params }) => {
     const creator = getCreator(params.slug);
-    if (!creator) throw notFound();
-    return { creator };
+    return {
+      meta: [
+        { title: creator ? `${creator.name} — ArtDera` : "Creator — ArtDera" },
+        { name: "description", content: creator?.bio.slice(0, 155) },
+        { property: "og:title", content: creator?.name },
+        { property: "og:url", content: creator ? `/creator/${creator.slug}` : undefined },
+        ...(creator ? [{ property: "og:image" as const, content: creator.portrait }] : []),
+      ],
+      links: creator ? [{ rel: "canonical", href: `/creator/${creator.slug}` }] : [],
+    };
   },
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: loaderData ? `${loaderData.creator.name} — ArtDera` : "Creator — ArtDera" },
-      { name: "description", content: loaderData?.creator.bio.slice(0, 155) },
-      { property: "og:title", content: loaderData?.creator.name },
-      {
-        property: "og:url",
-        content: loaderData ? `/creator/${loaderData.creator.slug}` : undefined,
-      },
-      ...(loaderData
-        ? [{ property: "og:image" as const, content: loaderData.creator.portrait }]
-        : []),
-    ],
-    links: loaderData ? [{ rel: "canonical", href: `/creator/${loaderData.creator.slug}` }] : [],
-  }),
   component: CreatorPage,
   notFoundComponent: () => (
     <div className="container-editorial py-24 text-center">
@@ -35,8 +32,21 @@ export const Route = createFileRoute("/creator/$slug")({
 });
 
 function CreatorPage() {
-  const { creator } = Route.useLoaderData();
+  const { slug } = Route.useParams();
+  const { user } = useAuth();
+  const creator = getCreator(slug);
+  if (!creator)
+    return <div className="container-editorial py-24 text-center"><h1 className="font-display text-4xl">Creator not found</h1><a href="/creators" className="btn-primary mt-6">Meet the creators</a></div>;
   const works = productsByCreator(creator.slug);
+  const firstArtwork = ARTWORKS.find((artwork) => works.some((work) => work.slug === artwork.slug));
+  const store = STORES.find((item) => item.slug === creator.slug) ?? STORES.find((item) => item.id === firstArtwork?.storeId);
+  const requireAccount = () => {
+    if (!user) {
+      window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return false;
+    }
+    return true;
+  };
 
   return (
     <div>
@@ -61,8 +71,8 @@ function CreatorPage() {
               {creator.bio}
             </p>
             <div className="mt-8 flex gap-3">
-              <button className="btn-primary">Follow studio</button>
-              <button className="btn-ghost">Request a commission</button>
+              <button onClick={() => void (async () => { if (!requireAccount() || !store) return; const result = await FollowService.follow(store.id); result.error ? toast.error(result.error.message) : toast.success("Studio followed"); })()} className="btn-primary">Follow studio</button>
+              <button onClick={() => void (async () => { if (!requireAccount() || !store) return; const result = await MessageService.createConversation(store.id, firstArtwork?.id, "Commission request: I would like to discuss a custom work."); if (result.error) toast.error(result.error.message); else window.location.assign(`/messages?conversation=${result.data!.id}`); })()} className="btn-ghost">Request a commission</button>
             </div>
             <dl className="mt-10 grid grid-cols-3 gap-6 max-w-md">
               {[

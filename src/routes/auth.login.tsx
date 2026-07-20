@@ -11,14 +11,6 @@ export const Route = createFileRoute("/auth/login")({
   component: Login,
 });
 
-const demos = [
-  ["Free artist", "free.artist@artdera.demo", "FreeArtist@2026"],
-  ["Professional", "professional.artist@artdera.demo", "Professional@2026"],
-  ["Pro Plus", "pro.artist@artdera.demo", "ProArtist@2026"],
-  ["Gallery demo", "gallery@artdera.demo", "GalleryDemo@2026"],
-  ["Buyer demo", "buyer@artdera.demo", "BuyerDemo@2026"],
-] as const;
-
 function Login() {
   const { refresh } = useAuth();
   const [email, setEmail] = useState("");
@@ -99,30 +91,6 @@ function Login() {
               {loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
-          <div className="mt-7 rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4">
-            <div className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
-              <Info className="h-4 w-4 shrink-0 text-[var(--indigo)]" />
-              <p>
-                Development-only quick access. Admin credentials are intentionally not shown on this
-                public screen.
-              </p>
-            </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {demos.map(([label, demoEmail, demoPassword]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setEmail(demoEmail);
-                    setPassword(demoPassword);
-                  }}
-                  className="rounded-xl bg-[var(--ivory)] px-3 py-3 text-xs font-semibold hover:ring-1 hover:ring-[var(--oxblood)]"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="mt-6 text-center text-sm text-muted-foreground">
             New buyer?{" "}
             <Link to="/auth/signup" className="font-semibold text-foreground underline">
@@ -135,8 +103,8 @@ function Login() {
           </div>
           <div className="mt-5 flex gap-2 text-[11px] leading-relaxed text-muted-foreground">
             <LockKeyhole className="h-4 w-4 shrink-0" />
-            Session state is stored only for this browser tab and expires after one hour. Backend
-            authorization is still required for production.
+            Your session uses a secure, HTTP-only cookie and every protected action is authorized by
+            the server.
           </div>
         </div>
       </div>

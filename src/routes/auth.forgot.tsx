@@ -23,14 +23,14 @@ function ForgotPassword() {
         {sent ? (
           <>
             <CheckCircle2 className="mx-auto h-12 w-12 text-[var(--success)]" />
-            <div className="eyebrow mt-6">Demo request accepted</div>
-            <h1 className="mt-3 font-display text-4xl">Check the next demo step.</h1>
+            <div className="eyebrow mt-6">Request accepted</div>
+            <h1 className="mt-3 font-display text-4xl">Check your recovery channel.</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              For privacy, this screen does not reveal whether an account exists. No real email was
-              sent.
+              For privacy, this screen does not reveal whether an account exists. If configured,
+              a time-limited code has been sent.
             </p>
             <Link to="/auth/reset" className="btn-primary mt-6">
-              Open demo reset screen
+              Enter reset code
             </Link>
           </>
         ) : (
@@ -39,8 +39,7 @@ function ForgotPassword() {
             <div className="eyebrow mt-6">Account recovery</div>
             <h1 className="mt-3 font-display text-4xl">Reset your password.</h1>
             <p className="mt-3 text-sm text-muted-foreground">
-              Enter your email. The production system will send a time-limited link once
-              authentication is connected.
+              Enter your email to request a time-limited recovery code.
             </p>
             <form onSubmit={submit} className="mt-7">
               <label htmlFor="forgot-email" className="eyebrow mb-2 block text-left">
@@ -54,7 +53,7 @@ function ForgotPassword() {
                 onChange={(event) => setEmail(event.target.value)}
                 className="art-field"
               />
-              <button className="btn-primary mt-4 w-full">Send demo reset link</button>
+              <button className="btn-primary mt-4 w-full">Send reset code</button>
             </form>
             <Link to="/auth/login" className="mt-5 inline-block text-xs font-semibold underline">
               Back to sign in

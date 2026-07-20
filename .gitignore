@@ -16,6 +16,15 @@ dist-ssr
 .nitro
 *.local
 
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+
+# Local backend uploads (development only)
+uploads/
+coverage/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

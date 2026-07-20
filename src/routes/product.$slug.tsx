@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BadgeCheck,
   Heart,
@@ -25,15 +25,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/marketplace/auth";
+import { ARTWORKS } from "@/marketplace/data";
+import { CartService, MessageService, WishlistService } from "@/marketplace/services";
 
 export const Route = createFileRoute("/product/$slug")({
-  loader: ({ params }) => {
-    const product = getProduct(params.slug);
-    if (!product) throw notFound();
-    return { product };
-  },
-  head: ({ loaderData }) => {
-    const p = loaderData?.product;
+  head: ({ params }) => {
+    const p = getProduct(params.slug);
     return {
       meta: [
         { title: p ? `${p.title} - ArtDera` : "Artwork - ArtDera" },
@@ -79,14 +77,54 @@ export const Route = createFileRoute("/product/$slug")({
 });
 
 function ProductPage() {
-  const { product } = Route.useLoaderData();
+  const { slug } = Route.useParams();
+  const product = getProduct(slug);
+  const { user } = useAuth();
+  if (!product)
+    return <div className="container-editorial py-24 text-center"><h1 className="font-display text-4xl">Work not found</h1><a href="/discover" className="btn-primary mt-6">Back to Discover</a></div>;
   const creator = getCreator(product.creatorSlug)!;
+  const artwork = ARTWORKS.find((item) => item.slug === product.slug);
   const [active, setActive] = useState(0);
   const [saved, setSaved] = useState(false);
   const more = productsByCreator(product.creatorSlug).filter((p) => p.slug !== product.slug);
   const similar = PRODUCTS.filter(
     (p) => p.slug !== product.slug && p.categorySlug === product.categorySlug,
   ).slice(0, 4);
+
+  const requireBuyer = () => {
+    if (!user) {
+      window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      return false;
+    }
+    if (user.role !== "buyer") {
+      toast.error("Use a buyer account for collecting actions.");
+      return false;
+    }
+    return true;
+  };
+
+  const addToCart = async (buyNow = false) => {
+    if (!requireBuyer() || !artwork) return;
+    const result = await CartService.add(artwork.id);
+    if (result.error) return toast.error(result.error.message);
+    toast.success("Added to your secure cart");
+    if (buyNow) window.location.assign("/checkout");
+  };
+
+  const toggleWishlist = async () => {
+    if (!requireBuyer() || !artwork) return;
+    const result = saved ? await WishlistService.remove(artwork.id) : await WishlistService.save(artwork.id);
+    if (result.error) return toast.error(result.error.message);
+    setSaved(!saved);
+    toast.success(saved ? "Removed from wishlist" : "Saved to wishlist");
+  };
+
+  const conversation = async (message?: string) => {
+    if (!requireBuyer() || !artwork) return undefined;
+    const result = await MessageService.createConversation(artwork.storeId, artwork.id, message);
+    if (result.error) toast.error(result.error.message);
+    return result.data;
+  };
 
   return (
     <div className="pb-20 lg:pb-0">
@@ -195,46 +233,51 @@ function ProductPage() {
           </div>
 
           <div className="mt-7 space-y-3">
-            <a href="/cart" className="btn-primary w-full py-3.5">
+            <button type="button" onClick={() => void addToCart()} className="btn-primary w-full py-3.5">
               <ShoppingBag className="h-4 w-4" /> Add to Cart
-            </a>
-            <a href="/cart" className="btn-dark w-full py-3.5">
+            </button>
+            <button type="button" onClick={() => void addToCart(true)} className="btn-dark w-full py-3.5">
               Buy Now
-            </a>
+            </button>
             <ViewInSpace product={product} />
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setSaved((value) => !value)}
+                onClick={() => void toggleWishlist()}
                 aria-pressed={saved}
                 className="btn-ghost"
               >
                 <Heart className="h-4 w-4" fill={saved ? "currentColor" : "none"} /> Wishlist
               </button>
-              <a href="/messages" className="btn-ghost">
+              <button type="button" onClick={() => void conversation().then((value) => value && window.location.assign(`/messages?conversation=${value.id}`))} className="btn-ghost">
                 <MessageCircle className="h-4 w-4" /> Message
-              </a>
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  toast.info("Offer composer opened in demo", {
-                    description: "Sign in as a buyer to send, track and respond to offers.",
-                  })
-                }
+                onClick={() => void (async () => {
+                  const value = window.prompt("Your offer in PKR", String(Math.round(product.price * 0.9)));
+                  const amount = Number(value);
+                  if (!value || !Number.isFinite(amount) || amount <= 0) return;
+                  const thread = await conversation();
+                  if (!thread) return;
+                  const result = await MessageService.createOffer(thread.id, amount);
+                  result.error ? toast.error(result.error.message) : toast.success("Offer sent securely");
+                })()}
                 className="btn-ghost"
               >
                 <Tag className="h-4 w-4" /> Make an Offer
               </button>
               <button
                 type="button"
-                onClick={() =>
-                  toast.success("Video consultation requested", {
-                    description:
-                      "The artist can accept, suggest another time or decline in the demo message centre.",
-                  })
-                }
+                onClick={() => void (async () => {
+                  const thread = await conversation();
+                  if (!thread) return;
+                  const date = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+                  const result = await MessageService.requestConsultation({ conversationId: thread.id, requestedDate: date, requestedTime: "17:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+                  result.error ? toast.error(result.error.message) : toast.success("Video consultation requested");
+                })()}
                 className="btn-ghost"
               >
                 <Video className="h-4 w-4" /> Request Video
@@ -373,9 +416,9 @@ function ProductPage() {
             <div className="truncate text-sm font-semibold">{product.title}</div>
             <div className="text-xs text-muted-foreground">{formatPKR(product.price)}</div>
           </div>
-          <a href="/cart" className="btn-primary shrink-0 px-4">
+          <button type="button" onClick={() => void addToCart()} className="btn-primary shrink-0 px-4">
             Add to Cart
-          </a>
+          </button>
         </div>
       </div>
     </div>

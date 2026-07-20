@@ -852,9 +852,9 @@ function ArtworkManager({ storeId }: { storeId: string }) {
   );
   const pageItems = filtered.slice((page - 1) * 6, page * 6);
   const pages = Math.max(1, Math.ceil(filtered.length / 6));
-  function bulk(nextStatus: ArtworkStatus) {
+  async function bulk(nextStatus: ArtworkStatus) {
     if (!selected.length) return toast.error("Select at least one artwork.");
-    const all = ArtworkService.updateMany(selected, nextStatus);
+    const all = await ArtworkService.updateMany(selected, nextStatus);
     const relevant = all.filter((item) => item.storeId === storeId);
     setItems(
       relevant.length
@@ -866,8 +866,8 @@ function ArtworkManager({ storeId }: { storeId: string }) {
     setSelected([]);
     toast.success(`${selected.length} artwork${selected.length === 1 ? "" : "s"} updated`);
   }
-  function remove() {
-    ArtworkService.deleteMany(selected);
+  async function remove() {
+    await ArtworkService.deleteMany(selected);
     setItems((values) => values.filter((item) => !selected.includes(item.id)));
     setSelected([]);
     setConfirmDelete(false);

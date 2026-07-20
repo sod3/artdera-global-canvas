@@ -31,6 +31,7 @@ import {
   sanitizeText,
   StoreService,
   SubscriptionService,
+  UploadService,
 } from "@/marketplace/services";
 import type { Artwork, BillingCycle, PlanId, Store } from "@/marketplace/types";
 
@@ -247,7 +248,7 @@ function ArtistOnboarding() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function chooseFile(
+  async function chooseFile(
     key: "profileImage" | "coverImage" | "artworkImage",
     event: ChangeEvent<HTMLInputElement>,
   ) {
@@ -261,88 +262,23 @@ function ArtistOnboarding() {
       toast.error("Choose an image smaller than 5 MB.");
       return;
     }
-    const url = URL.createObjectURL(file);
-    update(key, url);
-    toast.success("Image preview updated");
+    const purpose = key === "profileImage" ? "profile" : key === "coverImage" ? "cover" : "artwork";
+    const result = await UploadService.upload(file, purpose);
+    if (result.error) return toast.error(result.error.message);
+    if (!result.data) return toast.error("The image could not be uploaded.");
+    update(key, result.data.url);
+    toast.success("Image uploaded securely");
   }
 
-  function createStore() {
+  async function createStore() {
     if (!user) return;
-    const storeId = `store-${user.id}`;
-    const store: Store = {
-      id: storeId,
-      ownerId: user.id,
-      slug: data.slug,
-      name: sanitizeText(data.storeName, 80),
-      tagline: sanitizeText(data.tagline, 140),
-      bio: sanitizeText(data.shortBio, 500),
-      story: sanitizeText(data.story, 2000),
-      location: `${data.city}, ${data.country}`,
-      categories: data.categories
-        .split(",")
-        .map((value) => sanitizeText(value, 40))
-        .filter(Boolean),
-      mediums: data.mediums
-        .split(",")
-        .map((value) => sanitizeText(value, 40))
-        .filter(Boolean),
-      coverImage: data.coverImage,
-      profileImage: data.profileImage,
-      verified: false,
-      status: "Published",
-      followers: 0,
-      rating: 0,
-      reviewCount: 0,
-    };
-    StoreService.save(store);
-    if (data.addArtwork && data.artworkTitle) {
-      const artwork: Artwork = {
-        id: `art-${Date.now()}`,
-        storeId,
-        creatorName: data.displayName,
-        slug: slugify(data.artworkTitle),
-        title: sanitizeText(data.artworkTitle, 120),
-        description: sanitizeText(data.artworkDescription, 1200),
-        category: data.artworkCategory,
-        medium: data.artworkMedium,
-        style: data.artworkStyle,
-        subject: data.artworkSubject,
-        year: Number(data.artworkYear),
-        kind: data.artworkKind,
-        price: Number(data.artworkPrice),
-        discountPrice: data.artworkDiscount ? Number(data.artworkDiscount) : undefined,
-        dimensions: `${data.width} × ${data.height}${data.depth ? ` × ${data.depth}` : ""} ${data.unit}`,
-        weightKg: Number(data.weight),
-        framed: data.framed,
-        orientation: data.orientation,
-        images: [
-          {
-            id: `art-img-${Date.now()}`,
-            url: data.artworkImage,
-            alt: data.artworkTitle,
-            isPrimary: true,
-          },
-        ],
-        status: data.artworkDraft ? "Draft" : "Pending Review",
-        quantity: Number(data.quantity),
-        domesticShipping: data.domesticShipping,
-        internationalShipping: data.internationalInterest,
-        certificate: data.certificate,
-        tags: data.tags
-          .split(",")
-          .map((value) => sanitizeText(value, 30))
-          .filter(Boolean),
-        customOrders: data.customOrders,
-        views: 0,
-        saves: 0,
-        messages: 0,
-        sponsored: false,
-      };
-      ArtworkService.save(artwork);
-    }
-    OnboardingService.clear();
-    SubscriptionService.completeOnboarding(storeId);
+    setError("");
+    const result = await OnboardingService.complete(data);
+    if (result.error) return setError(result.error.message);
+    if (!result.data) return setError("Your store could not be created.");
+    SubscriptionService.completeOnboarding(result.data.store.id);
     window.location.assign("/artist/store-created");
+    return;
   }
 
   if (!ready)
@@ -360,7 +296,7 @@ function ArtistOnboarding() {
             <div className="eyebrow">Store setup · Step {step + 1} of 8</div>
             <h1 className="mt-3 font-display text-4xl md:text-5xl">{steps[step]}</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Your progress is saved in this browser as a demo draft.
+              Your progress is saved securely and can be resumed after signing in again.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1406,7 +1342,7 @@ function ReviewStep({
       <div className="mt-6 flex gap-3 rounded-xl bg-[var(--ivory)] p-4 text-sm leading-relaxed">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-[var(--indigo)]" />
         <p>
-          By creating the demo store, you confirm the terms acknowledgement, ownership declaration
+          By creating the store, you confirm the terms acknowledgement, ownership declaration
           and return-policy acknowledgement completed in this wizard.
         </p>
       </div>
