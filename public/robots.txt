@@ -3,3 +3,15 @@ Allow: /
 Disallow: /auth/
 Disallow: /cart
 Disallow: /wishlist
+Disallow: /checkout
+Disallow: /dashboard
+Disallow: /account
+Disallow: /admin
+Disallow: /artist/signup
+Disallow: /artist/verify
+Disallow: /artist/checkout
+Disallow: /artist/payment-success
+Disallow: /artist/payment-failed
+Disallow: /artist/onboarding
+Disallow: /artist/store-created
+Disallow: /artist/dashboard

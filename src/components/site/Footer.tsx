@@ -1,4 +1,5 @@
 import { Facebook, Instagram, Linkedin, type LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Logo } from "./Logo";
 
 const COLS = [
@@ -28,7 +29,7 @@ const COLS = [
     title: "Seller Resources",
     links: [
       ["Sell on ArtDera", "/sell"],
-      ["Seller plans", "/sell#plans"],
+      ["Seller plans", "/sell/plans"],
       ["Commissions", "/discover?category=custom-commissions"],
       ["Creator stories", "/journal"],
       ["Seller support", "/help"],
@@ -65,14 +66,19 @@ export function Footer() {
             </p>
             <div className="mt-6 flex gap-2">
               {socialLinks.map(({ label, Icon }) => (
-                <a
+                <button
+                  type="button"
                   key={label}
-                  href="#"
+                  onClick={() =>
+                    toast.info(
+                      `${label} will be connected when ArtDera's official profile is available.`,
+                    )
+                  }
                   aria-label={label}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:border-white/45 hover:text-white"
                 >
                   <Icon className="h-4 w-4" />
-                </a>
+                </button>
               ))}
             </div>
           </div>
@@ -99,7 +105,15 @@ export function Footer() {
             <p className="mt-2 text-sm leading-relaxed text-white/66">
               New collections, creator stories and inspiration for meaningful spaces.
             </p>
-            <form className="mt-5 flex gap-2" onSubmit={(event) => event.preventDefault()}>
+            <form
+              className="mt-5 flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                toast.success("Newsletter preference saved in demo mode", {
+                  description: "No email was sent or subscribed.",
+                });
+              }}
+            >
               <label className="sr-only" htmlFor="footer-email">
                 Email address
               </label>
@@ -143,6 +157,12 @@ export function Footer() {
             </a>
             <a href="/legal/ai-policy" className="hover:text-white">
               AI Policy
+            </a>
+            <a href="/legal/sponsored" className="hover:text-white">
+              Sponsored Content
+            </a>
+            <a href="/legal/community" className="hover:text-white">
+              Community
             </a>
           </div>
         </div>

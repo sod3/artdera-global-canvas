@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { AuthProvider } from "@/marketplace/auth";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -138,15 +140,31 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isHome = pathname === "/";
+  const privateWorkspace =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/artist/dashboard") ||
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/admin") ||
+    [
+      "/artist/verify",
+      "/artist/checkout",
+      "/artist/payment-success",
+      "/artist/payment-failed",
+      "/artist/onboarding",
+      "/artist/store-created",
+    ].includes(pathname);
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className={`flex-1 ${isHome ? "" : "pt-[var(--header-height)]"}`}>
-          <Outlet />
-        </main>
-        <Footer />
-      </div>
+      <AuthProvider>
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className={`flex-1 ${isHome ? "" : "pt-[var(--header-height)]"}`}>
+            <Outlet />
+          </main>
+          {!privateWorkspace && <Footer />}
+        </div>
+        <Toaster position="top-right" richColors />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

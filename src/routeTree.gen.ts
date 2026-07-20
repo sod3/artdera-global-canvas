@@ -17,18 +17,40 @@ import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as GalleriesRouteImport } from './routes/galleries'
 import { Route as DiscoverRouteImport } from './routes/discover'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CreatorsRouteImport } from './routes/creators'
 import { Route as CollectionsRouteImport } from './routes/collections'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as BuyerProtectionRouteImport } from './routes/buyer-protection'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StoreSlugRouteImport } from './routes/store.$slug'
+import { Route as SellPlansRouteImport } from './routes/sell.plans'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as LegalSlugRouteImport } from './routes/legal.$slug'
+import { Route as DashboardSectionRouteImport } from './routes/dashboard.$section'
 import { Route as CreatorSlugRouteImport } from './routes/creator.$slug'
 import { Route as AuthSignupRouteImport } from './routes/auth.signup'
+import { Route as AuthResetRouteImport } from './routes/auth.reset'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
+import { Route as AuthForgotRouteImport } from './routes/auth.forgot'
+import { Route as ArtistVerifyRouteImport } from './routes/artist.verify'
+import { Route as ArtistStoreCreatedRouteImport } from './routes/artist.store-created'
+import { Route as ArtistSignupRouteImport } from './routes/artist.signup'
+import { Route as ArtistPaymentSuccessRouteImport } from './routes/artist.payment-success'
+import { Route as ArtistPaymentFailedRouteImport } from './routes/artist.payment-failed'
+import { Route as ArtistOnboardingRouteImport } from './routes/artist.onboarding'
+import { Route as ArtistDashboardRouteImport } from './routes/artist.dashboard'
+import { Route as ArtistCheckoutRouteImport } from './routes/artist.checkout'
+import { Route as AdminSectionRouteImport } from './routes/admin.$section'
+import { Route as AccountSectionRouteImport } from './routes/account.$section'
+import { Route as ArtistDashboardSectionRouteImport } from './routes/artist.dashboard.$section'
+import { Route as ArtistDashboardArtworksNewRouteImport } from './routes/artist.dashboard.artworks.new'
 
 const WishlistRoute = WishlistRouteImport.update({
   id: '/wishlist',
@@ -70,9 +92,19 @@ const HelpRoute = HelpRouteImport.update({
   path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GalleriesRoute = GalleriesRouteImport.update({
+  id: '/galleries',
+  path: '/galleries',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DiscoverRoute = DiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatorsRoute = CreatorsRouteImport.update({
@@ -85,6 +117,11 @@ const CollectionsRoute = CollectionsRouteImport.update({
   path: '/collections',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
@@ -93,6 +130,16 @@ const CartRoute = CartRouteImport.update({
 const BuyerProtectionRoute = BuyerProtectionRouteImport.update({
   id: '/buyer-protection',
   path: '/buyer-protection',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -105,6 +152,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StoreSlugRoute = StoreSlugRouteImport.update({
+  id: '/store/$slug',
+  path: '/store/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SellPlansRoute = SellPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => SellRoute,
+} as any)
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
@@ -114,6 +171,11 @@ const LegalSlugRoute = LegalSlugRouteImport.update({
   id: '/legal/$slug',
   path: '/legal/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardSectionRoute = DashboardSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const CreatorSlugRoute = CreatorSlugRouteImport.update({
   id: '/creator/$slug',
@@ -125,89 +187,231 @@ const AuthSignupRoute = AuthSignupRouteImport.update({
   path: '/auth/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthResetRoute = AuthResetRouteImport.update({
+  id: '/auth/reset',
+  path: '/auth/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/auth/login',
   path: '/auth/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthForgotRoute = AuthForgotRouteImport.update({
+  id: '/auth/forgot',
+  path: '/auth/forgot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistVerifyRoute = ArtistVerifyRouteImport.update({
+  id: '/artist/verify',
+  path: '/artist/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistStoreCreatedRoute = ArtistStoreCreatedRouteImport.update({
+  id: '/artist/store-created',
+  path: '/artist/store-created',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistSignupRoute = ArtistSignupRouteImport.update({
+  id: '/artist/signup',
+  path: '/artist/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistPaymentSuccessRoute = ArtistPaymentSuccessRouteImport.update({
+  id: '/artist/payment-success',
+  path: '/artist/payment-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistPaymentFailedRoute = ArtistPaymentFailedRouteImport.update({
+  id: '/artist/payment-failed',
+  path: '/artist/payment-failed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistOnboardingRoute = ArtistOnboardingRouteImport.update({
+  id: '/artist/onboarding',
+  path: '/artist/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistDashboardRoute = ArtistDashboardRouteImport.update({
+  id: '/artist/dashboard',
+  path: '/artist/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArtistCheckoutRoute = ArtistCheckoutRouteImport.update({
+  id: '/artist/checkout',
+  path: '/artist/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSectionRoute = AdminSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AccountSectionRoute = AccountSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => AccountRoute,
+} as any)
+const ArtistDashboardSectionRoute = ArtistDashboardSectionRouteImport.update({
+  id: '/$section',
+  path: '/$section',
+  getParentRoute: () => ArtistDashboardRoute,
+} as any)
+const ArtistDashboardArtworksNewRoute =
+  ArtistDashboardArtworksNewRouteImport.update({
+    id: '/artworks/new',
+    path: '/artworks/new',
+    getParentRoute: () => ArtistDashboardRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/buyer-protection': typeof BuyerProtectionRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/discover': typeof DiscoverRoute
+  '/galleries': typeof GalleriesRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
   '/messages': typeof MessagesRoute
-  '/sell': typeof SellRoute
+  '/sell': typeof SellRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trade': typeof TradeRoute
   '/wishlist': typeof WishlistRoute
+  '/account/$section': typeof AccountSectionRoute
+  '/admin/$section': typeof AdminSectionRoute
+  '/artist/checkout': typeof ArtistCheckoutRoute
+  '/artist/dashboard': typeof ArtistDashboardRouteWithChildren
+  '/artist/onboarding': typeof ArtistOnboardingRoute
+  '/artist/payment-failed': typeof ArtistPaymentFailedRoute
+  '/artist/payment-success': typeof ArtistPaymentSuccessRoute
+  '/artist/signup': typeof ArtistSignupRoute
+  '/artist/store-created': typeof ArtistStoreCreatedRoute
+  '/artist/verify': typeof ArtistVerifyRoute
+  '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/dashboard/$section': typeof DashboardSectionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/sell/plans': typeof SellPlansRoute
+  '/store/$slug': typeof StoreSlugRoute
+  '/artist/dashboard/$section': typeof ArtistDashboardSectionRoute
+  '/artist/dashboard/artworks/new': typeof ArtistDashboardArtworksNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/buyer-protection': typeof BuyerProtectionRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/discover': typeof DiscoverRoute
+  '/galleries': typeof GalleriesRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
   '/messages': typeof MessagesRoute
-  '/sell': typeof SellRoute
+  '/sell': typeof SellRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trade': typeof TradeRoute
   '/wishlist': typeof WishlistRoute
+  '/account/$section': typeof AccountSectionRoute
+  '/admin/$section': typeof AdminSectionRoute
+  '/artist/checkout': typeof ArtistCheckoutRoute
+  '/artist/dashboard': typeof ArtistDashboardRouteWithChildren
+  '/artist/onboarding': typeof ArtistOnboardingRoute
+  '/artist/payment-failed': typeof ArtistPaymentFailedRoute
+  '/artist/payment-success': typeof ArtistPaymentSuccessRoute
+  '/artist/signup': typeof ArtistSignupRoute
+  '/artist/store-created': typeof ArtistStoreCreatedRoute
+  '/artist/verify': typeof ArtistVerifyRoute
+  '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/dashboard/$section': typeof DashboardSectionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/sell/plans': typeof SellPlansRoute
+  '/store/$slug': typeof StoreSlugRoute
+  '/artist/dashboard/$section': typeof ArtistDashboardSectionRoute
+  '/artist/dashboard/artworks/new': typeof ArtistDashboardArtworksNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/buyer-protection': typeof BuyerProtectionRoute
   '/cart': typeof CartRoute
+  '/checkout': typeof CheckoutRoute
   '/collections': typeof CollectionsRoute
   '/creators': typeof CreatorsRoute
+  '/dashboard': typeof DashboardRouteWithChildren
   '/discover': typeof DiscoverRoute
+  '/galleries': typeof GalleriesRoute
   '/help': typeof HelpRoute
   '/how-it-works': typeof HowItWorksRoute
   '/journal': typeof JournalRoute
   '/messages': typeof MessagesRoute
-  '/sell': typeof SellRoute
+  '/sell': typeof SellRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/trade': typeof TradeRoute
   '/wishlist': typeof WishlistRoute
+  '/account/$section': typeof AccountSectionRoute
+  '/admin/$section': typeof AdminSectionRoute
+  '/artist/checkout': typeof ArtistCheckoutRoute
+  '/artist/dashboard': typeof ArtistDashboardRouteWithChildren
+  '/artist/onboarding': typeof ArtistOnboardingRoute
+  '/artist/payment-failed': typeof ArtistPaymentFailedRoute
+  '/artist/payment-success': typeof ArtistPaymentSuccessRoute
+  '/artist/signup': typeof ArtistSignupRoute
+  '/artist/store-created': typeof ArtistStoreCreatedRoute
+  '/artist/verify': typeof ArtistVerifyRoute
+  '/auth/forgot': typeof AuthForgotRoute
   '/auth/login': typeof AuthLoginRoute
+  '/auth/reset': typeof AuthResetRoute
   '/auth/signup': typeof AuthSignupRoute
   '/creator/$slug': typeof CreatorSlugRoute
+  '/dashboard/$section': typeof DashboardSectionRoute
   '/legal/$slug': typeof LegalSlugRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/sell/plans': typeof SellPlansRoute
+  '/store/$slug': typeof StoreSlugRoute
+  '/artist/dashboard/$section': typeof ArtistDashboardSectionRoute
+  '/artist/dashboard/artworks/new': typeof ArtistDashboardArtworksNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
+    | '/account'
+    | '/admin'
     | '/buyer-protection'
     | '/cart'
+    | '/checkout'
     | '/collections'
     | '/creators'
+    | '/dashboard'
     | '/discover'
+    | '/galleries'
     | '/help'
     | '/how-it-works'
     | '/journal'
@@ -216,20 +420,42 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trade'
     | '/wishlist'
+    | '/account/$section'
+    | '/admin/$section'
+    | '/artist/checkout'
+    | '/artist/dashboard'
+    | '/artist/onboarding'
+    | '/artist/payment-failed'
+    | '/artist/payment-success'
+    | '/artist/signup'
+    | '/artist/store-created'
+    | '/artist/verify'
+    | '/auth/forgot'
     | '/auth/login'
+    | '/auth/reset'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/dashboard/$section'
     | '/legal/$slug'
     | '/product/$slug'
+    | '/sell/plans'
+    | '/store/$slug'
+    | '/artist/dashboard/$section'
+    | '/artist/dashboard/artworks/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/account'
+    | '/admin'
     | '/buyer-protection'
     | '/cart'
+    | '/checkout'
     | '/collections'
     | '/creators'
+    | '/dashboard'
     | '/discover'
+    | '/galleries'
     | '/help'
     | '/how-it-works'
     | '/journal'
@@ -238,20 +464,42 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trade'
     | '/wishlist'
+    | '/account/$section'
+    | '/admin/$section'
+    | '/artist/checkout'
+    | '/artist/dashboard'
+    | '/artist/onboarding'
+    | '/artist/payment-failed'
+    | '/artist/payment-success'
+    | '/artist/signup'
+    | '/artist/store-created'
+    | '/artist/verify'
+    | '/auth/forgot'
     | '/auth/login'
+    | '/auth/reset'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/dashboard/$section'
     | '/legal/$slug'
     | '/product/$slug'
+    | '/sell/plans'
+    | '/store/$slug'
+    | '/artist/dashboard/$section'
+    | '/artist/dashboard/artworks/new'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/account'
+    | '/admin'
     | '/buyer-protection'
     | '/cart'
+    | '/checkout'
     | '/collections'
     | '/creators'
+    | '/dashboard'
     | '/discover'
+    | '/galleries'
     | '/help'
     | '/how-it-works'
     | '/journal'
@@ -260,34 +508,67 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/trade'
     | '/wishlist'
+    | '/account/$section'
+    | '/admin/$section'
+    | '/artist/checkout'
+    | '/artist/dashboard'
+    | '/artist/onboarding'
+    | '/artist/payment-failed'
+    | '/artist/payment-success'
+    | '/artist/signup'
+    | '/artist/store-created'
+    | '/artist/verify'
+    | '/auth/forgot'
     | '/auth/login'
+    | '/auth/reset'
     | '/auth/signup'
     | '/creator/$slug'
+    | '/dashboard/$section'
     | '/legal/$slug'
     | '/product/$slug'
+    | '/sell/plans'
+    | '/store/$slug'
+    | '/artist/dashboard/$section'
+    | '/artist/dashboard/artworks/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  AccountRoute: typeof AccountRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
   BuyerProtectionRoute: typeof BuyerProtectionRoute
   CartRoute: typeof CartRoute
+  CheckoutRoute: typeof CheckoutRoute
   CollectionsRoute: typeof CollectionsRoute
   CreatorsRoute: typeof CreatorsRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
   DiscoverRoute: typeof DiscoverRoute
+  GalleriesRoute: typeof GalleriesRoute
   HelpRoute: typeof HelpRoute
   HowItWorksRoute: typeof HowItWorksRoute
   JournalRoute: typeof JournalRoute
   MessagesRoute: typeof MessagesRoute
-  SellRoute: typeof SellRoute
+  SellRoute: typeof SellRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TradeRoute: typeof TradeRoute
   WishlistRoute: typeof WishlistRoute
+  ArtistCheckoutRoute: typeof ArtistCheckoutRoute
+  ArtistDashboardRoute: typeof ArtistDashboardRouteWithChildren
+  ArtistOnboardingRoute: typeof ArtistOnboardingRoute
+  ArtistPaymentFailedRoute: typeof ArtistPaymentFailedRoute
+  ArtistPaymentSuccessRoute: typeof ArtistPaymentSuccessRoute
+  ArtistSignupRoute: typeof ArtistSignupRoute
+  ArtistStoreCreatedRoute: typeof ArtistStoreCreatedRoute
+  ArtistVerifyRoute: typeof ArtistVerifyRoute
+  AuthForgotRoute: typeof AuthForgotRoute
   AuthLoginRoute: typeof AuthLoginRoute
+  AuthResetRoute: typeof AuthResetRoute
   AuthSignupRoute: typeof AuthSignupRoute
   CreatorSlugRoute: typeof CreatorSlugRoute
   LegalSlugRoute: typeof LegalSlugRoute
   ProductSlugRoute: typeof ProductSlugRoute
+  StoreSlugRoute: typeof StoreSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -348,11 +629,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/galleries': {
+      id: '/galleries'
+      path: '/galleries'
+      fullPath: '/galleries'
+      preLoaderRoute: typeof GalleriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/discover': {
       id: '/discover'
       path: '/discover'
       fullPath: '/discover'
       preLoaderRoute: typeof DiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/creators': {
@@ -369,6 +664,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CollectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cart': {
       id: '/cart'
       path: '/cart'
@@ -381,6 +683,20 @@ declare module '@tanstack/react-router' {
       path: '/buyer-protection'
       fullPath: '/buyer-protection'
       preLoaderRoute: typeof BuyerProtectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -397,6 +713,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/store/$slug': {
+      id: '/store/$slug'
+      path: '/store/$slug'
+      fullPath: '/store/$slug'
+      preLoaderRoute: typeof StoreSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sell/plans': {
+      id: '/sell/plans'
+      path: '/plans'
+      fullPath: '/sell/plans'
+      preLoaderRoute: typeof SellPlansRouteImport
+      parentRoute: typeof SellRoute
+    }
     '/product/$slug': {
       id: '/product/$slug'
       path: '/product/$slug'
@@ -410,6 +740,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/legal/$slug'
       preLoaderRoute: typeof LegalSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/$section': {
+      id: '/dashboard/$section'
+      path: '/$section'
+      fullPath: '/dashboard/$section'
+      preLoaderRoute: typeof DashboardSectionRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/creator/$slug': {
       id: '/creator/$slug'
@@ -425,6 +762,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/reset': {
+      id: '/auth/reset'
+      path: '/auth/reset'
+      fullPath: '/auth/reset'
+      preLoaderRoute: typeof AuthResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/login': {
       id: '/auth/login'
       path: '/auth/login'
@@ -432,30 +776,194 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/forgot': {
+      id: '/auth/forgot'
+      path: '/auth/forgot'
+      fullPath: '/auth/forgot'
+      preLoaderRoute: typeof AuthForgotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/verify': {
+      id: '/artist/verify'
+      path: '/artist/verify'
+      fullPath: '/artist/verify'
+      preLoaderRoute: typeof ArtistVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/store-created': {
+      id: '/artist/store-created'
+      path: '/artist/store-created'
+      fullPath: '/artist/store-created'
+      preLoaderRoute: typeof ArtistStoreCreatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/signup': {
+      id: '/artist/signup'
+      path: '/artist/signup'
+      fullPath: '/artist/signup'
+      preLoaderRoute: typeof ArtistSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/payment-success': {
+      id: '/artist/payment-success'
+      path: '/artist/payment-success'
+      fullPath: '/artist/payment-success'
+      preLoaderRoute: typeof ArtistPaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/payment-failed': {
+      id: '/artist/payment-failed'
+      path: '/artist/payment-failed'
+      fullPath: '/artist/payment-failed'
+      preLoaderRoute: typeof ArtistPaymentFailedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/onboarding': {
+      id: '/artist/onboarding'
+      path: '/artist/onboarding'
+      fullPath: '/artist/onboarding'
+      preLoaderRoute: typeof ArtistOnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/dashboard': {
+      id: '/artist/dashboard'
+      path: '/artist/dashboard'
+      fullPath: '/artist/dashboard'
+      preLoaderRoute: typeof ArtistDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/artist/checkout': {
+      id: '/artist/checkout'
+      path: '/artist/checkout'
+      fullPath: '/artist/checkout'
+      preLoaderRoute: typeof ArtistCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/$section': {
+      id: '/admin/$section'
+      path: '/$section'
+      fullPath: '/admin/$section'
+      preLoaderRoute: typeof AdminSectionRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/account/$section': {
+      id: '/account/$section'
+      path: '/$section'
+      fullPath: '/account/$section'
+      preLoaderRoute: typeof AccountSectionRouteImport
+      parentRoute: typeof AccountRoute
+    }
+    '/artist/dashboard/$section': {
+      id: '/artist/dashboard/$section'
+      path: '/$section'
+      fullPath: '/artist/dashboard/$section'
+      preLoaderRoute: typeof ArtistDashboardSectionRouteImport
+      parentRoute: typeof ArtistDashboardRoute
+    }
+    '/artist/dashboard/artworks/new': {
+      id: '/artist/dashboard/artworks/new'
+      path: '/artworks/new'
+      fullPath: '/artist/dashboard/artworks/new'
+      preLoaderRoute: typeof ArtistDashboardArtworksNewRouteImport
+      parentRoute: typeof ArtistDashboardRoute
+    }
   }
 }
+
+interface AccountRouteChildren {
+  AccountSectionRoute: typeof AccountSectionRoute
+}
+
+const AccountRouteChildren: AccountRouteChildren = {
+  AccountSectionRoute: AccountSectionRoute,
+}
+
+const AccountRouteWithChildren =
+  AccountRoute._addFileChildren(AccountRouteChildren)
+
+interface AdminRouteChildren {
+  AdminSectionRoute: typeof AdminSectionRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminSectionRoute: AdminSectionRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface DashboardRouteChildren {
+  DashboardSectionRoute: typeof DashboardSectionRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardSectionRoute: DashboardSectionRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
+interface SellRouteChildren {
+  SellPlansRoute: typeof SellPlansRoute
+}
+
+const SellRouteChildren: SellRouteChildren = {
+  SellPlansRoute: SellPlansRoute,
+}
+
+const SellRouteWithChildren = SellRoute._addFileChildren(SellRouteChildren)
+
+interface ArtistDashboardRouteChildren {
+  ArtistDashboardSectionRoute: typeof ArtistDashboardSectionRoute
+  ArtistDashboardArtworksNewRoute: typeof ArtistDashboardArtworksNewRoute
+}
+
+const ArtistDashboardRouteChildren: ArtistDashboardRouteChildren = {
+  ArtistDashboardSectionRoute: ArtistDashboardSectionRoute,
+  ArtistDashboardArtworksNewRoute: ArtistDashboardArtworksNewRoute,
+}
+
+const ArtistDashboardRouteWithChildren = ArtistDashboardRoute._addFileChildren(
+  ArtistDashboardRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  AccountRoute: AccountRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
   BuyerProtectionRoute: BuyerProtectionRoute,
   CartRoute: CartRoute,
+  CheckoutRoute: CheckoutRoute,
   CollectionsRoute: CollectionsRoute,
   CreatorsRoute: CreatorsRoute,
+  DashboardRoute: DashboardRouteWithChildren,
   DiscoverRoute: DiscoverRoute,
+  GalleriesRoute: GalleriesRoute,
   HelpRoute: HelpRoute,
   HowItWorksRoute: HowItWorksRoute,
   JournalRoute: JournalRoute,
   MessagesRoute: MessagesRoute,
-  SellRoute: SellRoute,
+  SellRoute: SellRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TradeRoute: TradeRoute,
   WishlistRoute: WishlistRoute,
+  ArtistCheckoutRoute: ArtistCheckoutRoute,
+  ArtistDashboardRoute: ArtistDashboardRouteWithChildren,
+  ArtistOnboardingRoute: ArtistOnboardingRoute,
+  ArtistPaymentFailedRoute: ArtistPaymentFailedRoute,
+  ArtistPaymentSuccessRoute: ArtistPaymentSuccessRoute,
+  ArtistSignupRoute: ArtistSignupRoute,
+  ArtistStoreCreatedRoute: ArtistStoreCreatedRoute,
+  ArtistVerifyRoute: ArtistVerifyRoute,
+  AuthForgotRoute: AuthForgotRoute,
   AuthLoginRoute: AuthLoginRoute,
+  AuthResetRoute: AuthResetRoute,
   AuthSignupRoute: AuthSignupRoute,
   CreatorSlugRoute: CreatorSlugRoute,
   LegalSlugRoute: LegalSlugRoute,
   ProductSlugRoute: ProductSlugRoute,
+  StoreSlugRoute: StoreSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

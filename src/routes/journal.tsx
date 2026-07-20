@@ -65,7 +65,7 @@ function Journal() {
       </div>
       <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-10">
         {POSTS.map((p) => (
-          <a key={p.title} href="#" className="group block">
+          <article key={p.title} className="group block">
             <div className="aspect-[4/3] overflow-hidden rounded-lg">
               <img
                 src={p.img}
@@ -79,7 +79,7 @@ function Journal() {
               <div className="mt-2 font-display text-2xl">{p.title}</div>
               <p className="mt-1 text-sm text-muted-foreground">{p.excerpt}</p>
             </div>
-          </a>
+          </article>
         ))}
       </div>
     </div>

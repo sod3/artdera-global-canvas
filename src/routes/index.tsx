@@ -23,6 +23,7 @@ import {
   IMAGES,
 } from "@/lib/artdera";
 import { ProductCard } from "@/components/site/ProductCard";
+// import { ArtDeraScrollStory } from "@/components/site/scroll-story/ArtDeraScrollStory";
 
 const WALL_QUIZ_BUDGET_MAX: Record<string, number> = {
   "Under PKR 10,000": 10000,
@@ -56,10 +57,12 @@ function Home() {
     .filter(Boolean);
   const affordable = PRODUCTS.filter((p) => p.price < 50000);
   const collector = PRODUCTS.find((p) => p.kind === "Original") ?? PRODUCTS[0];
+  const storyProduct = getProduct("quiet-horizon") ?? collector;
 
   return (
     <div>
       <CinematicHero />
+      {/* <ArtDeraScrollStory product={storyProduct} /> */}
       <TrustStrip />
       <CategoryMosaic />
       <ArtDeraEdit products={editPicks} />
@@ -158,10 +161,10 @@ function CinematicHero() {
             </div>
           </div>
           <a
-            href="#trust-strip"
+            href="#artdera-scroll-story"
             className="scroll-cue absolute bottom-8 left-1/2 hidden -translate-x-1/2 items-center gap-2 text-xs uppercase tracking-[0.18em] text-white/60 md:flex"
           >
-            Scroll to discover <ChevronRight className="h-4 w-4 rotate-90" />
+            Begin the story <ChevronRight className="h-4 w-4 rotate-90" />
           </a>
         </div>
       </div>
@@ -263,7 +266,7 @@ function ArtDeraEdit({ products }: { products: typeof PRODUCTS }) {
           eyebrow="Curated"
           title="The ArtDera Edit"
           subtitle="A considered selection of works chosen for expressive quality, craftsmanship and the spaces they transform."
-          cta={["View Collection", "/collections/the-artdera-edit"]}
+          cta={["View Collection", "/collections"]}
         />
         <div className="mt-10 grid gap-5 lg:grid-cols-[1.18fr_0.82fr]">
           <Link

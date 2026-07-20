@@ -117,23 +117,21 @@ function Discover() {
   }, [category, framedOnly, kinds, maxPrice, query, search.room, selectedColour, sort]);
 
   const activeCategory = category ? CATEGORIES.find((c) => c.slug === category) : undefined;
-  const applied = [
-    category &&
-      (["Category", activeCategory?.name ?? category, () => setCategory(undefined)] as const),
-    query.trim() && (["Search", query.trim(), () => setQuery("")] as const),
-    ...kinds.map(
-      (kind) =>
-        [
-          "Type",
-          kind,
-          () => setKinds((values) => values.filter((value) => value !== kind)),
-        ] as const,
-    ),
-    selectedColour && (["Colour", selectedColour, () => setSelectedColour(undefined)] as const),
-    framedOnly && (["Framing", "Framed", () => setFramedOnly(false)] as const),
-    maxPrice < 300000 &&
-      (["Price", `Under ${formatPKR(maxPrice)}`, () => setMaxPrice(300000)] as const),
-  ].filter(Boolean);
+  const applied: Array<readonly [string, string, () => void]> = [];
+  if (category)
+    applied.push(["Category", activeCategory?.name ?? category, () => setCategory(undefined)]);
+  if (query.trim()) applied.push(["Search", query.trim(), () => setQuery("")]);
+  kinds.forEach((kind) =>
+    applied.push([
+      "Type",
+      kind,
+      () => setKinds((values) => values.filter((value) => value !== kind)),
+    ]),
+  );
+  if (selectedColour) applied.push(["Colour", selectedColour, () => setSelectedColour(undefined)]);
+  if (framedOnly) applied.push(["Framing", "Framed", () => setFramedOnly(false)]);
+  if (maxPrice < 300000)
+    applied.push(["Price", `Under ${formatPKR(maxPrice)}`, () => setMaxPrice(300000)]);
 
   const filterPanel = (
     <FilterPanel
@@ -296,9 +294,19 @@ function Discover() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-x-5 gap-y-12 lg:grid-cols-3">
-              {filtered.map((p) => (
-                <ProductCard key={p.slug} product={p} />
-              ))}
+              {filtered.map((p, index) => {
+                const sponsored = filtered.length >= 5 && index === 4;
+                return (
+                  <div key={p.slug} className="relative">
+                    {sponsored && (
+                      <span className="absolute left-3 top-3 z-10 rounded-full bg-[var(--porcelain)] px-2.5 py-1 text-[10px] font-bold shadow-sm">
+                        Sponsored
+                      </span>
+                    )}
+                    <ProductCard product={p} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

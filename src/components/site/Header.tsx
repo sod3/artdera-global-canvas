@@ -15,6 +15,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CATEGORIES, CREATORS, IMAGES, PRODUCTS, formatPKR } from "@/lib/artdera";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/marketplace/auth";
 import { Logo } from "./Logo";
 import {
   Dialog,
@@ -33,13 +34,9 @@ import {
 } from "@/components/ui/sheet";
 
 const NAV = [
-  { label: "Original Works", href: "/discover?category=original-works" },
-  { label: "Prints", href: "/discover?category=prints" },
-  { label: "Calligraphy", href: "/discover?category=calligraphy" },
-  { label: "Photography", href: "/discover?category=photography" },
-  { label: "Wall Decor", href: "/discover?category=wall-decor" },
-  { label: "Custom Commissions", href: "/discover?category=custom-commissions" },
-  { label: "Creators", href: "/creators" },
+  { label: "Explore Art", href: "/discover" },
+  { label: "Artists", href: "/creators" },
+  { label: "Galleries", href: "/galleries" },
   { label: "Collections", href: "/collections" },
 ];
 
@@ -49,7 +46,7 @@ const DISCOVER_LINKS = [
   ["Browse by colour", "/#browse-by-colour"],
   ["Browse by price", "/#affordable-discoveries"],
   ["New arrivals", "/discover?q=new"],
-  ["The ArtDera Edit", "/collections/the-artdera-edit"],
+  ["The ArtDera Edit", "/collections"],
   ["Featured creator", "/creators"],
   ["Limited editions", "/discover?kind=Limited%20Edition"],
 ];
@@ -77,6 +74,7 @@ export function Announcement({ light = false }: { light?: boolean }) {
 }
 
 export function Header() {
+  const { user } = useAuth();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [scrolled, setScrolled] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
@@ -84,6 +82,13 @@ export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isHome = pathname === "/";
   const heroMode = isHome && !scrolled && !drawerOpen && !searchOpen;
+  const accountHref = user
+    ? user.role === "admin"
+      ? "/admin"
+      : user.role === "buyer"
+        ? "/account"
+        : "/dashboard"
+    : "/auth/login";
 
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 28);
@@ -136,7 +141,7 @@ export function Header() {
                 </button>
                 {megaOpen && <DiscoverMegaMenu onClose={() => setMegaOpen(false)} />}
               </div>
-              {NAV.slice(0, 7).map((item) => (
+              {NAV.map((item) => (
                 <a
                   key={item.label}
                   href={item.href}
@@ -182,7 +187,7 @@ export function Header() {
             </a>
             <a
               aria-label="Account"
-              href="/auth/login"
+              href={accountHref}
               className={cn(
                 "hidden h-10 w-10 items-center justify-center rounded-full transition sm:inline-flex",
                 heroMode ? "hover:bg-white/12" : "hover:bg-secondary",
@@ -209,7 +214,7 @@ export function Header() {
                   : "bg-[var(--ink)] text-[var(--ivory)] hover:-translate-y-0.5",
               )}
             >
-              Sell
+              Sell on ArtDera
             </a>
             <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
               <SheetTrigger asChild>
@@ -227,6 +232,7 @@ export function Header() {
               <MobileDrawer
                 onNavigate={() => setDrawerOpen(false)}
                 onSearch={() => setSearchOpen(true)}
+                accountHref={accountHref}
               />
             </Sheet>
           </div>
@@ -443,7 +449,15 @@ function SearchOverlay({
   );
 }
 
-function MobileDrawer({ onNavigate, onSearch }: { onNavigate: () => void; onSearch: () => void }) {
+function MobileDrawer({
+  onNavigate,
+  onSearch,
+  accountHref,
+}: {
+  onNavigate: () => void;
+  onSearch: () => void;
+  accountHref: string;
+}) {
   return (
     <SheetContent className="w-full overflow-y-auto bg-[var(--porcelain)] p-0 sm:max-w-md">
       <SheetHeader className="border-b border-[var(--color-border)] p-5 text-left">
@@ -516,7 +530,7 @@ function MobileDrawer({ onNavigate, onSearch }: { onNavigate: () => void; onSear
           {utilityLinks.map(({ label, href, Icon }) => (
             <a
               key={label}
-              href={href}
+              href={label === "Account" ? accountHref : href}
               onClick={onNavigate}
               className="flex min-h-12 items-center gap-2 rounded-xl border border-[var(--color-border)] bg-white/45 px-3"
             >

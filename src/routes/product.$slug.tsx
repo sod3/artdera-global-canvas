@@ -6,11 +6,15 @@ import {
   Ruler,
   ShieldCheck,
   ShoppingBag,
+  Share2,
   Sparkles,
+  Tag,
   Truck,
+  Video,
   ZoomIn,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { getProduct, getCreator, productsByCreator, formatPKR, PRODUCTS } from "@/lib/artdera";
 import { ProductCard } from "@/components/site/ProductCard";
 import { ViewInSpace } from "@/components/site/ViewInSpace";
@@ -211,6 +215,41 @@ function ProductPage() {
                 <MessageCircle className="h-4 w-4" /> Message
               </a>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  toast.info("Offer composer opened in demo", {
+                    description: "Sign in as a buyer to send, track and respond to offers.",
+                  })
+                }
+                className="btn-ghost"
+              >
+                <Tag className="h-4 w-4" /> Make an Offer
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  toast.success("Video consultation requested", {
+                    description:
+                      "The artist can accept, suggest another time or decline in the demo message centre.",
+                  })
+                }
+                className="btn-ghost"
+              >
+                <Video className="h-4 w-4" /> Request Video
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(window.location.href);
+                toast.success("Artwork link copied");
+              }}
+              className="btn-ghost w-full"
+            >
+              <Share2 className="h-4 w-4" /> Share Artwork
+            </button>
             <a
               href={`/discover?category=custom-commissions&q=${encodeURIComponent(product.title)}`}
               className="btn-ghost w-full"
@@ -225,6 +264,8 @@ function ProductPage() {
               ["Dimensions", product.dimensions],
               ["Year", product.year.toString()],
               ["Framing", product.framed ? "Included" : "Available on request"],
+              ["Availability", "Available"],
+              ["Certificate", "Declared by seller"],
               ["Colours", product.colours.join(", ")],
               ["Best for", product.room.join(", ")],
             ].map(([k, v]) => (
