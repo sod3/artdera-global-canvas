@@ -45,6 +45,8 @@ Important environment variables:
 | `UPLOAD_PROVIDER` / `UPLOAD_DIR`  | Upload adapter and local upload root.                                                |
 | `SEED_DEMO_DATA`                  | Explicitly enables development fixtures during `npm run seed`.                       |
 
+Hosted deployments must use `NODE_ENV=production`. The production build command pins this value as a defense in depth measure so React SSR cannot accidentally be compiled with its development-only `jsxDEV` transform.
+
 See [.env.example](./.env.example) for the safe template. Demo account emails/passwords must be provided through local environment variables and are bcrypt-hashed before insertion. The seed command refuses demo fixtures in production and never creates a known production admin password.
 
 ## Commands

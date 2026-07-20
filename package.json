@@ -7,7 +7,7 @@
     "dev": "concurrently -k -n api,web -c magenta,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "vite dev",
     "dev:api": "tsx watch server/index.ts",
-    "build": "vite build",
+    "build": "node scripts/build-production.mjs",
     "build:api": "tsc -p tsconfig.server.json",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
