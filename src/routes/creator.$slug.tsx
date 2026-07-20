@@ -36,13 +36,24 @@ function CreatorPage() {
   const { user } = useAuth();
   const creator = getCreator(slug);
   if (!creator)
-    return <div className="container-editorial py-24 text-center"><h1 className="font-display text-4xl">Creator not found</h1><a href="/creators" className="btn-primary mt-6">Meet the creators</a></div>;
+    return (
+      <div className="container-editorial py-24 text-center">
+        <h1 className="font-display text-4xl">Creator not found</h1>
+        <a href="/creators" className="btn-primary mt-6">
+          Meet the creators
+        </a>
+      </div>
+    );
   const works = productsByCreator(creator.slug);
   const firstArtwork = ARTWORKS.find((artwork) => works.some((work) => work.slug === artwork.slug));
-  const store = STORES.find((item) => item.slug === creator.slug) ?? STORES.find((item) => item.id === firstArtwork?.storeId);
+  const store =
+    STORES.find((item) => item.slug === creator.slug) ??
+    STORES.find((item) => item.id === firstArtwork?.storeId);
   const requireAccount = () => {
     if (!user) {
-      window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      window.location.assign(
+        `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+      );
       return false;
     }
     return true;
@@ -71,8 +82,37 @@ function CreatorPage() {
               {creator.bio}
             </p>
             <div className="mt-8 flex gap-3">
-              <button onClick={() => void (async () => { if (!requireAccount() || !store) return; const result = await FollowService.follow(store.id); result.error ? toast.error(result.error.message) : toast.success("Studio followed"); })()} className="btn-primary">Follow studio</button>
-              <button onClick={() => void (async () => { if (!requireAccount() || !store) return; const result = await MessageService.createConversation(store.id, firstArtwork?.id, "Commission request: I would like to discuss a custom work."); if (result.error) toast.error(result.error.message); else window.location.assign(`/messages?conversation=${result.data!.id}`); })()} className="btn-ghost">Request a commission</button>
+              <button
+                onClick={() =>
+                  void (async () => {
+                    if (!requireAccount() || !store) return;
+                    const result = await FollowService.follow(store.id);
+                    result.error
+                      ? toast.error(result.error.message)
+                      : toast.success("Studio followed");
+                  })()
+                }
+                className="btn-primary"
+              >
+                Follow studio
+              </button>
+              <button
+                onClick={() =>
+                  void (async () => {
+                    if (!requireAccount() || !store) return;
+                    const result = await MessageService.createConversation(
+                      store.id,
+                      firstArtwork?.id,
+                      "Commission request: I would like to discuss a custom work.",
+                    );
+                    if (result.error) toast.error(result.error.message);
+                    else window.location.assign(`/messages?conversation=${result.data!.id}`);
+                  })()
+                }
+                className="btn-ghost"
+              >
+                Request a commission
+              </button>
             </div>
             <dl className="mt-10 grid grid-cols-3 gap-6 max-w-md">
               {[

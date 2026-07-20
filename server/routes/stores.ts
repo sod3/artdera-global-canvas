@@ -18,8 +18,27 @@ import { sanitizeText } from "../lib/security";
 import { requirePermission, reserveListingSlot } from "../services/plans";
 
 export const storesRouter = Router();
-const reservedSlugs = new Set(["admin", "api", "artdera", "auth", "dashboard", "discover", "help", "new-store", "sell", "store", "stores", "support"]);
-const slugSchema = z.string().trim().toLowerCase().min(3).max(80).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+const reservedSlugs = new Set([
+  "admin",
+  "api",
+  "artdera",
+  "auth",
+  "dashboard",
+  "discover",
+  "help",
+  "new-store",
+  "sell",
+  "store",
+  "stores",
+  "support",
+]);
+const slugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(80)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 const storeInput = z
   .object({
@@ -54,7 +73,9 @@ storesRouter.get(
   "/mine",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const stores = await StoreModel.find({ ownerId: req.auth!.user._id }).sort({ createdAt: -1 }).lean();
+    const stores = await StoreModel.find({ ownerId: req.auth!.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
     return ok(res, stores.map(publicStore));
   }),
 );
@@ -74,7 +95,11 @@ storesRouter.get(
     const slug = slugSchema.parse(req.params.slug);
     const store = await StoreModel.findOne({ slug, isPublished: true, status: "active" }).lean();
     if (!store) throw new ApiError(404, "STORE_NOT_FOUND", "Store not found");
-    const artworks = await ArtworkModel.find({ storeId: store._id, status: "published", moderationStatus: "approved" })
+    const artworks = await ArtworkModel.find({
+      storeId: store._id,
+      status: "published",
+      moderationStatus: "approved",
+    })
       .sort({ isSponsored: -1, createdAt: -1 })
       .limit(100)
       .lean();
@@ -89,11 +114,22 @@ storesRouter.post(
   requireRole("artist", "gallery"),
   asyncRoute(async (req, res) => {
     const input = storeInput.parse(req.body);
-    if (reservedSlugs.has(input.slug)) throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
-    if (await StoreModel.exists({ slug: input.slug })) throw new ApiError(409, "SLUG_TAKEN", "That store URL is already in use");
-    const subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id, status: "active" });
-    if (!subscription) throw new ApiError(403, "ACTIVE_SUBSCRIPTION_REQUIRED", "Activate your subscription before creating a store");
-    if (input.internationalShipping) await requirePermission(req.auth!.user._id, "international-tools");
+    if (reservedSlugs.has(input.slug))
+      throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
+    if (await StoreModel.exists({ slug: input.slug }))
+      throw new ApiError(409, "SLUG_TAKEN", "That store URL is already in use");
+    const subscription = await SubscriptionModel.findOne({
+      userId: req.auth!.user._id,
+      status: "active",
+    });
+    if (!subscription)
+      throw new ApiError(
+        403,
+        "ACTIVE_SUBSCRIPTION_REQUIRED",
+        "Activate your subscription before creating a store",
+      );
+    if (input.internationalShipping)
+      await requirePermission(req.auth!.user._id, "international-tools");
     const store = await StoreModel.create({
       ownerId: req.auth!.user._id,
       ownerType: req.auth!.user.role,
@@ -121,7 +157,13 @@ storesRouter.post(
     });
     subscription.storeId = store._id;
     await subscription.save();
-    await notify(req.auth!.user._id, "store_created", "Store created", `${store.name} is ready for setup.`, `/store/${store.slug}`);
+    await notify(
+      req.auth!.user._id,
+      "store_created",
+      "Store created",
+      `${store.name} is ready for setup.`,
+      `/store/${store.slug}`,
+    );
     await audit(req, "store.created", "Store", store._id, undefined, store.toObject());
     return ok(res, publicStore(store.toObject()), "Store created", 201);
   }),
@@ -133,12 +175,17 @@ storesRouter.patch(
   requireRole("artist", "gallery"),
   asyncRoute(async (req, res) => {
     const input = storeInput.partial().parse(req.body);
-    if (input.slug && reservedSlugs.has(input.slug)) throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
+    if (input.slug && reservedSlugs.has(input.slug))
+      throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
     if (input.slug && (await StoreModel.exists({ slug: input.slug, _id: { $ne: req.params.id } })))
       throw new ApiError(409, "SLUG_TAKEN", "That store URL is already in use");
-    const before = await StoreModel.findOne({ _id: req.params.id, ownerId: req.auth!.user._id }).lean();
+    const before = await StoreModel.findOne({
+      _id: req.params.id,
+      ownerId: req.auth!.user._id,
+    }).lean();
     if (!before) throw new ApiError(404, "STORE_NOT_FOUND", "Store not found");
-    if (input.internationalShipping) await requirePermission(req.auth!.user._id, "international-tools");
+    if (input.internationalShipping)
+      await requirePermission(req.auth!.user._id, "international-tools");
     const patch: Record<string, unknown> = { ...input };
     if (input.bio !== undefined) patch.shortDescription = input.bio;
     if (input.story !== undefined) patch.fullDescription = input.story;
@@ -152,7 +199,7 @@ storesRouter.patch(
     const store = await StoreModel.findOneAndUpdate(
       { _id: req.params.id, ownerId: req.auth!.user._id },
       { $set: patch },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean();
     await audit(req, "store.updated", "Store", before._id, before, store);
     return ok(res, publicStore(store!), "Store updated");
@@ -164,7 +211,12 @@ storesRouter.get(
   requireAuth,
   asyncRoute(async (req, res) => {
     const draft = await OnboardingDraftModel.findOne({ userId: req.auth!.user._id }).lean();
-    return ok(res, draft ? { step: draft.step, data: draft.data, completedAt: draft.completedAt } : { step: 0, data: {} });
+    return ok(
+      res,
+      draft
+        ? { step: draft.step, data: draft.data, completedAt: draft.completedAt }
+        : { step: 0, data: {} },
+    );
   }),
 );
 
@@ -173,14 +225,20 @@ storesRouter.patch(
   requireAuth,
   requireRole("artist", "gallery"),
   asyncRoute(async (req, res) => {
-    const input = z.object({ step: z.number().int().min(0).max(7), data: z.record(z.unknown()) }).strict().parse(req.body);
+    const input = z
+      .object({ step: z.number().int().min(0).max(7), data: z.record(z.unknown()) })
+      .strict()
+      .parse(req.body);
     const draft = await OnboardingDraftModel.findOneAndUpdate(
       { userId: req.auth!.user._id },
       { $set: { step: input.step, data: input.data } },
-      { new: true, upsert: true, runValidators: true },
+      { returnDocument: "after", upsert: true, runValidators: true },
     ).lean();
     const Profile = req.auth!.user.role === "gallery" ? GalleryProfileModel : ArtistProfileModel;
-    await Profile.updateOne({ userId: req.auth!.user._id }, { $set: { onboardingStep: input.step } });
+    await Profile.updateOne(
+      { userId: req.auth!.user._id },
+      { $set: { onboardingStep: input.step } },
+    );
     return ok(res, { step: draft!.step, data: draft!.data }, "Onboarding draft saved");
   }),
 );
@@ -190,20 +248,44 @@ storesRouter.post(
   requireVerified,
   requireRole("artist", "gallery"),
   asyncRoute(async (req, res) => {
-    const input = z.object({ data: z.record(z.unknown()) }).strict().parse(req.body);
+    const input = z
+      .object({ data: z.record(z.unknown()) })
+      .strict()
+      .parse(req.body);
     const data = input.data as Record<string, any>;
     const required = ["displayName", "storeName", "slug", "shortBio", "city"];
     if (required.some((field) => typeof data[field] !== "string" || !data[field].trim()))
-      throw new ApiError(422, "ONBOARDING_INCOMPLETE", "Complete all required store details before publishing");
+      throw new ApiError(
+        422,
+        "ONBOARDING_INCOMPLETE",
+        "Complete all required store details before publishing",
+      );
     const slug = slugSchema.parse(data.slug);
-    if (reservedSlugs.has(slug)) throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
+    if (reservedSlugs.has(slug))
+      throw new ApiError(409, "SLUG_RESERVED", "That store URL is reserved");
     const existing = await StoreModel.findOne({ ownerId: req.auth!.user._id });
-    if (!existing && (await StoreModel.exists({ slug }))) throw new ApiError(409, "SLUG_TAKEN", "That store URL is already in use");
-    const subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id, status: "active" });
-    if (!subscription) throw new ApiError(403, "ACTIVE_SUBSCRIPTION_REQUIRED", "Activate your subscription before publishing a store");
-    if (data.internationalInterest) await requirePermission(req.auth!.user._id, "international-tools");
+    if (!existing && (await StoreModel.exists({ slug })))
+      throw new ApiError(409, "SLUG_TAKEN", "That store URL is already in use");
+    const subscription = await SubscriptionModel.findOne({
+      userId: req.auth!.user._id,
+      status: "active",
+    });
+    if (!subscription)
+      throw new ApiError(
+        403,
+        "ACTIVE_SUBSCRIPTION_REQUIRED",
+        "Activate your subscription before publishing a store",
+      );
+    if (data.internationalInterest)
+      await requirePermission(req.auth!.user._id, "international-tools");
     const list = (value: unknown) =>
-      typeof value === "string" ? value.split(",").map((item) => sanitizeText(item, 80)).filter(Boolean).slice(0, 30) : [];
+      typeof value === "string"
+        ? value
+            .split(",")
+            .map((item) => sanitizeText(item, 80))
+            .filter(Boolean)
+            .slice(0, 30)
+        : [];
     const store = await StoreModel.findOneAndUpdate(
       { ownerId: req.auth!.user._id },
       {
@@ -233,7 +315,7 @@ storesRouter.post(
         },
         $setOnInsert: { ownerId: req.auth!.user._id },
       },
-      { new: true, upsert: true, runValidators: true },
+      { returnDocument: "after", upsert: true, runValidators: true },
     );
     subscription.storeId = store._id;
     await subscription.save();
@@ -276,14 +358,23 @@ storesRouter.post(
         storeId: store._id,
         artistId: req.auth!.user.role === "artist" ? req.auth!.user._id : undefined,
         title: sanitizeText(data.artworkTitle, 180),
-        slug: `${String(data.artworkTitle).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80)}-${Date.now().toString(36)}`,
+        slug: `${String(data.artworkTitle)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "")
+          .slice(0, 80)}-${Date.now().toString(36)}`,
         description: sanitizeText(data.artworkDescription ?? "", 8000),
         category: sanitizeText(data.artworkCategory ?? "Original Works", 80),
         medium: sanitizeText(data.artworkMedium ?? "Mixed media", 80),
         style: sanitizeText(data.artworkStyle ?? "Contemporary", 80),
         subject: sanitizeText(data.artworkSubject ?? "", 100),
         yearCreated: Number(data.artworkYear) || new Date().getFullYear(),
-        artworkType: data.artworkKind === "Print" ? "print" : data.artworkKind === "Limited Edition" ? "limited_edition" : "original",
+        artworkType:
+          data.artworkKind === "Print"
+            ? "print"
+            : data.artworkKind === "Limited Edition"
+              ? "limited_edition"
+              : "original",
         price: Number(data.artworkPrice),
         discountPrice: data.artworkDiscount ? Number(data.artworkDiscount) : undefined,
         width: Number(data.width) || undefined,
@@ -294,7 +385,9 @@ storesRouter.post(
         orientation: String(data.orientation ?? "Portrait").toLowerCase(),
         isFramed: Boolean(data.framed),
         quantity: Number(data.quantity) || 1,
-        images: data.artworkImage ? [{ url: data.artworkImage, alt: sanitizeText(data.artworkTitle, 180), isPrimary: true }] : [],
+        images: data.artworkImage
+          ? [{ url: data.artworkImage, alt: sanitizeText(data.artworkTitle, 180), isPrimary: true }]
+          : [],
         certificateAvailable: Boolean(data.certificate),
         pickupCity: sanitizeText(data.pickupCity ?? data.city, 100),
         domesticShipping: Boolean(data.domesticShipping),
@@ -305,12 +398,25 @@ storesRouter.post(
         status: publishNow ? "pending_review" : "draft",
         moderationStatus: publishNow ? "pending" : "not_submitted",
       });
-      if (publishNow) await notify(req.auth!.user._id, "artwork_submitted", "Artwork submitted", `${artwork.title} is awaiting moderation.`, "/artist/dashboard/artworks");
+      if (publishNow)
+        await notify(
+          req.auth!.user._id,
+          "artwork_submitted",
+          "Artwork submitted",
+          `${artwork.title} is awaiting moderation.`,
+          "/artist/dashboard/artworks",
+        );
     }
     if (data.verificationSubmitted) {
       await VerificationRequestModel.updateOne(
         { userId: req.auth!.user._id, type: req.auth!.user.role },
-        { $set: { storeId: store._id, submittedData: { ownershipDeclared: Boolean(data.ownershipDeclared) }, status: "pending" } },
+        {
+          $set: {
+            storeId: store._id,
+            submittedData: { ownershipDeclared: Boolean(data.ownershipDeclared) },
+            status: "pending",
+          },
+        },
         { upsert: true },
       );
     }
@@ -319,8 +425,25 @@ storesRouter.post(
       { $set: { step: 7, data, completedAt: new Date() } },
       { upsert: true },
     );
-    await notify(req.auth!.user._id, "store_created", "Store published", `${store.name} is now live.`, `/store/${store.slug}`);
-    await audit(req, "onboarding.completed", "Store", store._id, undefined, { storeId: store._id, artworkId: artwork?._id });
-    return ok(res, { store: publicStore(store.toObject()), artwork: artwork ? publicArtwork(artwork.toObject()) : null }, "Onboarding completed", 201);
+    await notify(
+      req.auth!.user._id,
+      "store_created",
+      "Store published",
+      `${store.name} is now live.`,
+      `/store/${store.slug}`,
+    );
+    await audit(req, "onboarding.completed", "Store", store._id, undefined, {
+      storeId: store._id,
+      artworkId: artwork?._id,
+    });
+    return ok(
+      res,
+      {
+        store: publicStore(store.toObject()),
+        artwork: artwork ? publicArtwork(artwork.toObject()) : null,
+      },
+      "Onboarding completed",
+      201,
+    );
   }),
 );

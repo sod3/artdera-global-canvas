@@ -15,9 +15,19 @@ export interface VerifiedPayment {
   failureReason?: string;
 }
 export interface PaymentProvider {
-  createPayment(input: { amount: number; currency: "PKR"; idempotencyKey: string }): Promise<PaymentIntent>;
-  verifyPayment(reference: string, requestedOutcome?: "success" | "failure"): Promise<VerifiedPayment>;
-  refundPayment(input: { reference: string; amount: number }): Promise<{ reference: string; refunded: boolean }>;
+  createPayment(input: {
+    amount: number;
+    currency: "PKR";
+    idempotencyKey: string;
+  }): Promise<PaymentIntent>;
+  verifyPayment(
+    reference: string,
+    requestedOutcome?: "success" | "failure",
+  ): Promise<VerifiedPayment>;
+  refundPayment(input: {
+    reference: string;
+    amount: number;
+  }): Promise<{ reference: string; refunded: boolean }>;
   handleWebhook(payload: unknown, signature: string): Promise<{ accepted: boolean }>;
 }
 

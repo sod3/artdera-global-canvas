@@ -454,7 +454,7 @@ function IdentityStep({ data, update, chooseFile }: StepProps & { chooseFile: Im
   return (
     <StepLayout
       title="Introduce your practice"
-      description="Use the name collectors should recognise. Legal details stay private in this demo."
+      description="Use the name collectors should recognise. Legal details remain private and access-controlled."
     >
       <ImagePicker
         label="Profile photo or logo"
@@ -992,8 +992,8 @@ function VerificationStep({ data, update }: StepProps) {
         {[
           ["Identity verification", "Not submitted"],
           ["Portfolio review", data.verificationSubmitted ? "Pending Review" : "Not submitted"],
-          ["Phone verification", "Verified in demo"],
-          ["Email verification", "Verified in demo"],
+          ["Phone verification", "Managed in account"],
+          ["Email verification", "Verified account"],
           ["Artwork ownership declaration", data.ownershipDeclared ? "Confirmed" : "Required"],
           [
             "Gallery registration",
@@ -1030,13 +1030,13 @@ function VerificationStep({ data, update }: StepProps) {
           if (!data.ownershipDeclared)
             return toast.error("Confirm the ownership declaration first.");
           update("verificationSubmitted", true);
-          toast.success("Mock verification request submitted", {
-            description: "Status: Pending Review",
+          toast.success("Verification request added", {
+            description: "It will be saved when onboarding creates your store.",
           });
         }}
         className="btn-ghost mt-5"
       >
-        Submit mock verification request
+        Include verification request
       </button>
       {data.verificationSubmitted && (
         <div className="mt-4 flex gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -1072,7 +1072,7 @@ function ArtworkStep({ data, update, chooseFile }: StepProps & { chooseFile: Ima
   return (
     <StepLayout
       title="Add your first artwork"
-      description="Save a draft or send the listing to mock review. You can add more images and video later."
+      description="Save a draft or send the listing to marketplace review. You can add more images and video later."
     >
       <div className="mb-6 flex justify-end">
         <button
@@ -1342,8 +1342,8 @@ function ReviewStep({
       <div className="mt-6 flex gap-3 rounded-xl bg-[var(--ivory)] p-4 text-sm leading-relaxed">
         <Info className="mt-0.5 h-5 w-5 shrink-0 text-[var(--indigo)]" />
         <p>
-          By creating the store, you confirm the terms acknowledgement, ownership declaration
-          and return-policy acknowledgement completed in this wizard.
+          By creating the store, you confirm the terms acknowledgement, ownership declaration and
+          return-policy acknowledgement completed in this wizard.
         </p>
       </div>
     </StepLayout>

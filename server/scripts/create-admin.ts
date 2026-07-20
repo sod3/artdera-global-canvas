@@ -24,14 +24,28 @@ async function main() {
     existing.passwordChangedAt = new Date();
     await existing.save();
   } else {
-    await UserModel.create({ fullName, email, emailNormalized: email, passwordHash: await bcrypt.hash(password, 12), role: "admin", status: "active", emailVerified: true, city: "", country: "Pakistan", termsAcceptedAt: new Date(), privacyAcceptedAt: new Date() });
+    await UserModel.create({
+      fullName,
+      email,
+      emailNormalized: email,
+      passwordHash: await bcrypt.hash(password, 12),
+      role: "admin",
+      status: "active",
+      emailVerified: true,
+      city: "",
+      country: "Pakistan",
+      termsAcceptedAt: new Date(),
+      privacyAcceptedAt: new Date(),
+    });
   }
   process.stdout.write("Admin account created or updated.\n");
   await disconnectDatabase();
 }
 
 void main().catch(async () => {
-  process.stderr.write("Admin creation failed. Check ADMIN_EMAIL, ADMIN_PASSWORD, and database configuration.\n");
+  process.stderr.write(
+    "Admin creation failed. Check ADMIN_EMAIL, ADMIN_PASSWORD, and database configuration.\n",
+  );
   await disconnectDatabase();
   process.exitCode = 1;
 });

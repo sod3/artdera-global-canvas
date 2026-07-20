@@ -69,10 +69,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "./auth";
 import {
-  ANALYTICS,
   ARTWORKS,
-  CUSTOMERS,
-  EXHIBITIONS,
+  CONVERSATIONS,
   MESSAGES,
   NOTIFICATIONS,
   ORDERS,
@@ -80,7 +78,6 @@ import {
   PROMOTIONS,
   REVIEWS,
   SHIPMENTS,
-  STAFF,
   STORES,
 } from "./data";
 import {
@@ -93,16 +90,27 @@ import {
 } from "./types";
 import {
   ArtistService,
+  AnalyticsService,
   ArtworkDraftService,
   ArtworkService,
+  CustomerService,
   containsProtectedContact,
   FeatureAccessService,
+  GalleryService,
   InvoiceService,
+  MessageService,
+  NotificationService,
+  OrderService,
   PromotionService,
+  ReviewService,
+  SupportService,
   StoreService,
   SubscriptionService,
+  UploadService,
+  UserService,
+  VerificationService,
 } from "./services";
-import { formatPKR, PLAN_ORDER, PLANS, PROMOTION_PLACEMENTS } from "./config";
+import { DEMO_PAYMENT_MODE, formatPKR, PLAN_ORDER, PLANS, PROMOTION_PLACEMENTS } from "./config";
 import {
   Dialog,
   DialogContent,
@@ -537,12 +545,39 @@ function Overview({
   planId: PlanId;
 }) {
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [activity, setActivity] = useState<Record<string, number>>({});
+  const [activitySeries, setActivitySeries] = useState<Array<Record<string, string | number>>>([]);
+  useEffect(() => {
+    void AnalyticsService.get("7d").then((result) => {
+      if (!result.data) return;
+      setActivity(result.data.metrics);
+      const byDate = new Map<string, Record<string, string | number>>();
+      for (const point of result.data.series) {
+        const row = byDate.get(point._id.date) ?? {
+          date: point._id.date,
+          storeViews: 0,
+          artworkViews: 0,
+        };
+        if (point._id.type === "store_view") row.storeViews = point.count;
+        if (point._id.type === "artwork_view") row.artworkViews = point.count;
+        byDate.set(point._id.date, row);
+      }
+      setActivitySeries([...byDate.values()]);
+    });
+  }, []);
   const subscription = SubscriptionService.getForUser(userId);
   const usage = FeatureAccessService.usage(userId, storeId);
   const storeArtworks = ArtworkService.forStore(storeId);
   const published = storeArtworks.filter((item) => item.status === "Published").length;
   const drafts = storeArtworks.filter((item) => item.status === "Draft").length;
   const sold = storeArtworks.filter((item) => item.status === "Sold").length;
+  const sellerOrders = ORDERS.filter((order) => order.sellerId === userId);
+  const activePromotions = PROMOTIONS.filter((promotion) =>
+    ["Active", "Scheduled", "Pending"].includes(promotion.status),
+  );
+  const pendingPayout = PAYOUTS.filter(
+    (payout) => payout.sellerId === userId && payout.status !== "Paid",
+  ).reduce((sum, payout) => sum + payout.net, 0);
   const metrics = [
     [
       "Total artworks",
@@ -550,12 +585,32 @@ function Overview({
       `${published} published · ${drafts} drafts · ${sold} sold`,
       Palette,
     ],
-    ["Orders", "12", "2 need attention", ShoppingBag],
-    ["Store views", "8,420", "+18.4%", Eye],
-    ["Wishlist saves", "486", "+32 this week", Heart],
-    ["Messages", "24", "4 unread", MessageCircle],
-    ["Estimated earnings", "Rs. 386k", "Rs. 82k pending", Banknote],
-    ["Active promotions", "1", "6,840 impressions", Sparkles],
+    [
+      "Orders",
+      String(sellerOrders.length),
+      `${sellerOrders.filter((order) => ["Paid", "Seller Confirmed", "Preparing"].includes(order.status)).length} need attention`,
+      ShoppingBag,
+    ],
+    ["Store views", String(activity.storeViews ?? 0), "Last 7 days", Eye],
+    ["Wishlist saves", String(activity.saves ?? 0), "Last 7 days", Heart],
+    [
+      "Messages",
+      String(activity.messages ?? 0),
+      `${CONVERSATIONS.reduce((sum, conversation) => sum + conversation.unreadCount, 0)} unread`,
+      MessageCircle,
+    ],
+    [
+      "Estimated earnings",
+      formatPKR(activity.estimatedPayout ?? 0),
+      `${formatPKR(pendingPayout)} pending`,
+      Banknote,
+    ],
+    [
+      "Active promotions",
+      String(activePromotions.length),
+      `${activePromotions.reduce((sum, promotion) => sum + promotion.impressions, 0).toLocaleString()} impressions`,
+      Sparkles,
+    ],
     [
       "Listing usage",
       role === "gallery"
@@ -670,7 +725,7 @@ function Overview({
           </div>
           <div className="mt-5 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={ANALYTICS}>
+              <AreaChart data={activitySeries}>
                 <defs>
                   <linearGradient id="dashboardViews" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6e2334" stopOpacity={0.35} />
@@ -758,13 +813,9 @@ function UnlockedGrowthTool({ title, body }: { title: string; body: string }) {
       <div className="eyebrow">Unlocked with your plan</div>
       <h2 className="mt-3 font-display text-4xl">{title}</h2>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{body}</p>
-      <button
-        type="button"
-        onClick={() => toast.success(`${title} settings saved in demo mode`)}
-        className="btn-primary mt-6"
-      >
-        Save Demo Settings
-      </button>
+      <a href="/artist/dashboard/store" className="btn-primary mt-6">
+        Configure store settings
+      </a>
     </Panel>
   );
 }
@@ -854,8 +905,9 @@ function ArtworkManager({ storeId }: { storeId: string }) {
   const pages = Math.max(1, Math.ceil(filtered.length / 6));
   async function bulk(nextStatus: ArtworkStatus) {
     if (!selected.length) return toast.error("Select at least one artwork.");
-    const all = await ArtworkService.updateMany(selected, nextStatus);
-    const relevant = all.filter((item) => item.storeId === storeId);
+    const result = await ArtworkService.updateMany(selected, nextStatus);
+    if (result.error) return toast.error(result.error.message);
+    const relevant = (result.data ?? []).filter((item) => item.storeId === storeId);
     setItems(
       relevant.length
         ? relevant
@@ -867,13 +919,12 @@ function ArtworkManager({ storeId }: { storeId: string }) {
     toast.success(`${selected.length} artwork${selected.length === 1 ? "" : "s"} updated`);
   }
   async function remove() {
-    await ArtworkService.deleteMany(selected);
+    const result = await ArtworkService.deleteMany(selected);
+    if (result.error) return toast.error(result.error.message);
     setItems((values) => values.filter((item) => !selected.includes(item.id)));
     setSelected([]);
     setConfirmDelete(false);
-    toast.success("Artwork removed", {
-      action: { label: "Undo", onClick: () => window.location.reload() },
-    });
+    toast.success("Artwork removed");
   }
   return (
     <Panel>
@@ -1078,8 +1129,9 @@ function ArtworkManager({ storeId }: { storeId: string }) {
           <DialogHeader>
             <DialogTitle className="font-display text-3xl">Delete selected artwork?</DialogTitle>
             <DialogDescription>
-              This removes {selected.length} demo record{selected.length === 1 ? "" : "s"}. This
-              action requires confirmation.
+              This permanently removes {selected.length} draft record
+              {selected.length === 1 ? "" : "s"}. Published artwork is archived by the API instead
+              of being deleted.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 flex justify-end gap-3">
@@ -1179,29 +1231,34 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
   const atLimit = limit !== null && listingCount >= limit;
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState("Not saved yet");
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    category: "Original Works",
-    medium: "Acrylic on canvas",
-    style: "Contemporary",
-    subject: "Abstract",
-    year: "2026",
-    kind: "Original" as Artwork["kind"],
-    price: "",
-    discount: "",
-    quantity: "1",
-    width: "60",
-    height: "76",
-    depth: "3",
-    weight: "2.5",
-    framed: false,
-    domestic: true,
-    international: false,
-    certificate: true,
-    tags: "abstract, contemporary",
-    status: "Draft" as ArtworkStatus,
-  });
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState(() =>
+    ArtworkDraftService.read({
+      title: "",
+      description: "",
+      category: "Original Works",
+      medium: "Acrylic on canvas",
+      style: "Contemporary",
+      subject: "Abstract",
+      year: "2026",
+      kind: "Original" as Artwork["kind"],
+      price: "",
+      discount: "",
+      quantity: "1",
+      width: "60",
+      height: "76",
+      depth: "3",
+      weight: "2.5",
+      framed: false,
+      domestic: true,
+      international: false,
+      certificate: true,
+      tags: "abstract, contemporary",
+      status: "Draft" as ArtworkStatus,
+      imageUrl: "",
+    }),
+  );
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
       if (dirty) {
@@ -1226,7 +1283,7 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
     setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
   }
-  function submit(event: FormEvent, status: ArtworkStatus) {
+  async function submit(event: FormEvent, status: ArtworkStatus) {
     event.preventDefault();
     if (atLimit && status !== "Draft")
       return toast.error(
@@ -1234,6 +1291,9 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
       );
     if (!form.title || !Number(form.price))
       return toast.error("Add a title and valid price before saving.");
+    if (status !== "Draft" && !form.imageUrl)
+      return toast.error("Upload a main artwork image before submitting for review.");
+    setSubmitting(true);
     const artwork: Artwork = {
       id: `art-${Date.now()}`,
       storeId,
@@ -1256,7 +1316,9 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
       weightKg: Number(form.weight),
       framed: form.framed,
       orientation: Number(form.width) > Number(form.height) ? "Landscape" : "Portrait",
-      images: [{ id: `image-${Date.now()}`, url: IMAGES.art1, alt: form.title, isPrimary: true }],
+      images: form.imageUrl
+        ? [{ id: `image-${Date.now()}`, url: form.imageUrl, alt: form.title, isPrimary: true }]
+        : [],
       status,
       quantity: Number(form.quantity),
       domesticShipping: form.domestic,
@@ -1272,14 +1334,17 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
       messages: 0,
       sponsored: false,
     };
-    ArtworkService.save(artwork);
+    const result = await ArtworkService.save(artwork);
+    setSubmitting(false);
+    if (result.error) return toast.error(result.error.message);
     setDirty(false);
+    ArtworkDraftService.clear();
     toast.success(status === "Draft" ? "Artwork saved as draft" : "Artwork sent for review", {
       description: "You can keep editing it from Artworks.",
     });
   }
   return (
-    <form onSubmit={(event) => submit(event, "Pending Review")} className="space-y-5">
+    <form onSubmit={(event) => void submit(event, "Pending Review")} className="space-y-5">
       {atLimit && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
           <div className="flex gap-3">
@@ -1313,13 +1378,14 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={(event) => submit(event as unknown as FormEvent, "Draft")}
+            disabled={submitting || uploading}
+            onClick={(event) => void submit(event as unknown as FormEvent, "Draft")}
             className="btn-ghost"
           >
             Save draft
           </button>
           <button
-            disabled={atLimit}
+            disabled={atLimit || submitting || uploading}
             className="btn-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             Preview and publish
@@ -1386,21 +1452,48 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
       </FormSection>
       <FormSection
         title="Images and video"
-        description="Demo uploads accept artwork images later; a safe project asset is used for this listing preview."
+        description="Upload the main image buyers will see. Files are validated before secure storage."
       >
         <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
-          <img
-            src={IMAGES.art1}
-            alt="Artwork upload preview"
-            className="aspect-[4/5] w-full rounded-xl object-cover"
-          />
+          {form.imageUrl ? (
+            <img
+              src={form.imageUrl}
+              alt="Artwork upload preview"
+              className="aspect-[4/5] w-full rounded-xl object-cover"
+            />
+          ) : (
+            <div className="flex aspect-[4/5] w-full items-center justify-center rounded-xl bg-[var(--ivory)] text-xs text-muted-foreground">
+              No image uploaded
+            </div>
+          )}
           <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[var(--color-border-strong)] text-center">
             <ImagePlus className="h-6 w-6 text-[var(--oxblood)]" />
-            <span className="mt-3 text-sm font-semibold">Add main image</span>
+            <span className="mt-3 text-sm font-semibold">
+              {uploading ? "Uploading image…" : "Add main image"}
+            </span>
             <span className="mt-1 text-xs text-muted-foreground">
               JPG, PNG or WebP · up to 5 MB
             </span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={uploading}
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                void (async () => {
+                  setUploading(true);
+                  const result = await UploadService.upload(file, "artwork");
+                  setUploading(false);
+                  if (result.error) return toast.error(result.error.message);
+                  if (result.data) {
+                    set("imageUrl", result.data.url);
+                    toast.success("Artwork image uploaded");
+                  }
+                })();
+              }}
+            />
           </label>
         </div>
       </FormSection>
@@ -1527,8 +1620,12 @@ function AddArtwork({ storeId, planId }: { storeId: string; planId: PlanId }) {
 
 function StoreManager({ storeId, storeSlug }: { storeId: string; storeSlug: string }) {
   const store = StoreService.list().find((item) => item.id === storeId) ?? STORES[0];
+  const [name, setName] = useState(store.name);
   const [tagline, setTagline] = useState(store.tagline);
   const [bio, setBio] = useState(store.bio);
+  const [categories, setCategories] = useState(store.categories.join(", "));
+  const [mediums, setMediums] = useState(store.mediums.join(", "));
+  const [saving, setSaving] = useState(false);
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <Panel>
@@ -1536,7 +1633,11 @@ function StoreManager({ storeId, storeSlug }: { storeId: string; storeSlug: stri
         <h2 className="mt-2 font-display text-3xl">Edit the story buyers see.</h2>
         <div className="mt-6 grid gap-5">
           <DashboardField label="Store name">
-            <input className="art-field" defaultValue={store.name} />
+            <input
+              className="art-field"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
           </DashboardField>
           <DashboardField label="Store URL">
             <div className="art-field bg-[var(--ivory)] text-muted-foreground">
@@ -1560,17 +1661,48 @@ function StoreManager({ storeId, storeSlug }: { storeId: string; storeSlug: stri
           </DashboardField>
           <div className="grid gap-3 sm:grid-cols-2">
             <DashboardField label="Main categories">
-              <input className="art-field" defaultValue={store.categories.join(", ")} />
+              <input
+                className="art-field"
+                value={categories}
+                onChange={(event) => setCategories(event.target.value)}
+              />
             </DashboardField>
             <DashboardField label="Mediums">
-              <input className="art-field" defaultValue={store.mediums.join(", ")} />
+              <input
+                className="art-field"
+                value={mediums}
+                onChange={(event) => setMediums(event.target.value)}
+              />
             </DashboardField>
           </div>
           <button
-            onClick={() => toast.success("Store changes saved")}
-            className="btn-primary justify-self-start"
+            disabled={saving}
+            onClick={() =>
+              void (async () => {
+                setSaving(true);
+                const result = await StoreService.save({
+                  ...store,
+                  name: name.trim(),
+                  tagline,
+                  bio,
+                  categories: categories
+                    .split(",")
+                    .map((value) => value.trim())
+                    .filter(Boolean),
+                  mediums: mediums
+                    .split(",")
+                    .map((value) => value.trim())
+                    .filter(Boolean),
+                });
+                setSaving(false);
+                result.error
+                  ? toast.error(result.error.message)
+                  : toast.success("Store changes saved");
+              })()
+            }
+            className="btn-primary justify-self-start disabled:opacity-45"
           >
-            Save changes
+            {saving ? "Saving…" : "Save changes"}
           </button>
         </div>
       </Panel>
@@ -1586,7 +1718,7 @@ function StoreManager({ storeId, storeSlug }: { storeId: string; storeSlug: stri
             alt=""
             className="-mt-14 h-20 w-20 rounded-full border-4 border-[var(--ink)] object-cover"
           />
-          <h3 className="mt-4 font-display text-3xl">{store.name}</h3>
+          <h3 className="mt-4 font-display text-3xl">{name}</h3>
           <p className="mt-2 text-xs leading-relaxed text-white/60">{tagline}</p>
           <a
             href={`/store/${storeSlug}`}
@@ -1606,13 +1738,25 @@ function OrdersManager() {
   );
   const [active, setActive] = useState(ORDERS[0]);
   const nextStatus = (current: OrderStatus): OrderStatus =>
-    current === "Seller Confirmed"
-      ? "Preparing"
-      : current === "Preparing"
-        ? "Ready for Pickup"
-        : current === "Ready for Pickup"
-          ? "Shipped"
-          : current;
+    current === "Paid"
+      ? "Seller Confirmed"
+      : current === "Seller Confirmed"
+        ? "Preparing"
+        : current === "Preparing"
+          ? "Ready for Pickup"
+          : current === "Ready for Pickup"
+            ? "Shipped"
+            : current;
+  if (!active)
+    return (
+      <Panel>
+        <div className="eyebrow">Orders</div>
+        <h2 className="mt-3 font-display text-3xl">No orders yet.</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Paid marketplace orders will appear here.
+        </p>
+      </Panel>
+    );
   return (
     <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
       <Panel>
@@ -1681,11 +1825,11 @@ function OrdersManager() {
             <MapPin className="h-4 w-4 text-[var(--oxblood)]" /> Delivery address
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            House 18, Street 7, F-7/2, Islamabad, Pakistan
+            Delivery city: {active.deliveryCity}
           </p>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Visible because this mock order is confirmed. Contact details remain protected before
-            confirmation.
+            Full delivery contact is kept server-side and becomes available only to eligible order
+            participants.
           </p>
         </div>
         <div className="mt-6">
@@ -1712,17 +1856,32 @@ function OrdersManager() {
         </div>
         <div className="mt-7 flex flex-wrap gap-2">
           <button
-            onClick={() => {
-              const next = nextStatus(statuses[active.id]);
-              setStatuses((current) => ({ ...current, [active.id]: next }));
-              toast.success(`Order marked ${next}`);
-            }}
+            onClick={() =>
+              void (async () => {
+                const next = nextStatus(statuses[active.id]);
+                if (next === statuses[active.id])
+                  return toast.info("No seller transition is currently available.");
+                const result = await OrderService.updateStatus(active.id, next);
+                if (result.error) return toast.error(result.error.message);
+                setStatuses((current) => ({ ...current, [active.id]: next }));
+                toast.success(`Order marked ${next}`);
+              })()
+            }
             className="btn-primary"
           >
             <PackageCheck className="h-4 w-4" /> Mark as {nextStatus(statuses[active.id])}
           </button>
           <button
-            onClick={() => toast.success("Mock courier pickup requested")}
+            onClick={() =>
+              void OrderService.updateShipping(active.id, {
+                courier: "Seller-arranged courier",
+                status: "awaiting_pickup",
+              }).then((result) =>
+                result.error
+                  ? toast.error(result.error.message)
+                  : toast.success("Pickup status saved"),
+              )
+            }
             className="btn-ghost"
           >
             <Truck className="h-4 w-4" /> Request pickup
@@ -1730,7 +1889,7 @@ function OrdersManager() {
           <button onClick={() => window.print()} className="btn-ghost">
             <ReceiptText className="h-4 w-4" /> Print invoice
           </button>
-          <button onClick={() => toast.success("Demo packing slip prepared")} className="btn-ghost">
+          <button onClick={() => window.print()} className="btn-ghost">
             <FileText className="h-4 w-4" /> Packing slip
           </button>
         </div>
@@ -1740,79 +1899,145 @@ function OrdersManager() {
 }
 
 function MessageCenter() {
-  const [active, setActive] = useState("conversation-1");
+  const { user } = useAuth();
+  const [active, setActive] = useState(CONVERSATIONS[0]?.id ?? "");
   const [text, setText] = useState("");
-  const [offer, setOffer] = useState<"Pending" | "Accepted" | "Rejected" | "Countered">("Pending");
+  const [search, setSearch] = useState("");
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachment, setAttachment] = useState<{
+    url: string;
+    name: string;
+    mimeType: string;
+    size: number;
+  } | null>(null);
+  const [offers, setOffers] = useState<Array<Record<string, any>>>([]);
   const messages = MESSAGES.filter((message) => message.conversationId === active);
   const warning = containsProtectedContact(text);
-  function send() {
-    if (!text.trim()) return;
+  const filteredConversations = CONVERSATIONS.filter((conversation) => {
+    const artwork = ARTWORKS.find((item) => item.id === conversation.artworkId);
+    const query = search.trim().toLowerCase();
+    return (
+      !query ||
+      `${artwork?.title ?? "store enquiry"} ${conversation.status}`.toLowerCase().includes(query)
+    );
+  });
+  useEffect(() => {
+    void MessageService.listConversations().then((result) => {
+      if (result.data) setActive((current) => current || result.data?.[0]?.id || "");
+    });
+  }, []);
+  useEffect(() => {
+    if (!active) return;
+    void MessageService.getConversation(active).then((result) => {
+      if (result.data) setOffers(result.data.offers);
+    });
+  }, [active]);
+  async function send() {
+    if (!text.trim() && !attachment) return;
     if (warning)
       return toast.error(
         "Keep contact and payment details inside ArtDera until an order is confirmed.",
       );
-    toast.success("Demo message sent");
+    const result = await MessageService.send(active, text, attachment ?? undefined);
+    if (result.error) return toast.error(result.error.message);
+    toast.success("Message sent");
     setText("");
+    setAttachment(null);
   }
+  async function changeStatus(action: "archive" | "block" | "report", label: string) {
+    const result = await MessageService.changeStatus(active, action);
+    if (result.error) return toast.error(result.error.message);
+    if (result.data) {
+      const index = CONVERSATIONS.findIndex((item) => item.id === result.data!.id);
+      if (index >= 0) CONVERSATIONS[index] = result.data;
+    }
+    toast.success(label);
+  }
+  if (!CONVERSATIONS.length)
+    return (
+      <Panel>
+        <div className="eyebrow">Messages</div>
+        <h2 className="mt-3 font-display text-3xl">No conversations yet.</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Buyer questions and offers will appear here.
+        </p>
+      </Panel>
+    );
+  const currentConversation =
+    CONVERSATIONS.find((conversation) => conversation.id === active) ?? CONVERSATIONS[0];
+  const currentArtwork = ARTWORKS.find((artwork) => artwork.id === currentConversation.artworkId);
   return (
     <div className="grid min-h-[650px] overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] lg:grid-cols-[320px_1fr]">
       <aside className="border-b border-[var(--color-border)] lg:border-b-0 lg:border-r">
         <div className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input className="art-field pl-10" placeholder="Search conversations" />
+            <input
+              className="art-field pl-10"
+              placeholder="Search conversations"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
           </div>
         </div>
         <div className="divide-y divide-[var(--color-border)]">
-          {[
-            ["conversation-1", "Hamza Ahmed", ARTWORKS[0], 2],
-            ["conversation-2", "Ayesha Khan", ARTWORKS[1], 0],
-          ].map(([id, name, artwork, unread]) => (
-            <button
-              key={id as string}
-              onClick={() => setActive(id as string)}
-              className={`flex w-full gap-3 p-4 text-left ${active === id ? "bg-[var(--ivory)]" : ""}`}
-            >
-              <img
-                src={(artwork as Artwork).images[0].url}
-                alt=""
-                className="h-14 w-12 rounded object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-sm font-semibold">{name as string}</span>
-                  {Number(unread) > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--oxblood)] text-[10px] text-white">
-                      {unread as number}
-                    </span>
-                  )}
+          {filteredConversations.map((conversation) => {
+            const artwork = ARTWORKS.find((item) => item.id === conversation.artworkId);
+            return (
+              <button
+                key={conversation.id}
+                onClick={() => setActive(conversation.id)}
+                className={`flex w-full gap-3 p-4 text-left ${active === conversation.id ? "bg-[var(--ivory)]" : ""}`}
+              >
+                {artwork?.images[0] && (
+                  <img
+                    src={artwork.images[0].url}
+                    alt=""
+                    className="h-14 w-12 rounded object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="truncate text-sm font-semibold">Marketplace buyer</span>
+                    {conversation.unreadCount > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--oxblood)] text-[10px] text-white">
+                        {conversation.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 truncate text-xs text-muted-foreground">
+                    {artwork?.title ?? "Store enquiry"}
+                  </div>
+                  <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                    {conversation.status}
+                  </div>
                 </div>
-                <div className="mt-1 truncate text-xs text-muted-foreground">
-                  {(artwork as Artwork).title}
-                </div>
-                <div className="mt-1 truncate text-[11px] text-muted-foreground">
-                  Could you confirm the framing?
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
+          {!filteredConversations.length && (
+            <p className="p-5 text-sm text-muted-foreground">No conversations match that search.</p>
+          )}
         </div>
       </aside>
       <main className="flex min-w-0 flex-col">
         <div className="flex items-center justify-between border-b border-[var(--color-border)] p-4">
           <div className="flex items-center gap-3">
-            <img
-              src={ARTWORKS[0].images[0].url}
-              alt=""
-              className="h-11 w-11 rounded-lg object-cover"
-            />
+            {currentArtwork?.images[0] && (
+              <img
+                src={currentArtwork.images[0].url}
+                alt=""
+                className="h-11 w-11 rounded-lg object-cover"
+              />
+            )}
             <div>
-              <div className="text-sm font-semibold">Hamza Ahmed</div>
-              <div className="text-xs text-muted-foreground">About {ARTWORKS[0].title}</div>
+              <div className="text-sm font-semibold">Protected conversation</div>
+              <div className="text-xs text-muted-foreground">
+                {currentArtwork ? `About ${currentArtwork.title}` : "Store enquiry"}
+              </div>
             </div>
           </div>
           <div className="flex gap-1">
-            <VideoRequest />
             <button
               className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[var(--ivory)]"
               aria-label="Conversation options"
@@ -1825,11 +2050,22 @@ function MessageCenter() {
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`max-w-[82%] rounded-2xl p-4 text-sm leading-relaxed ${message.senderId === "user-artist" ? "ml-auto bg-[var(--ink)] text-[var(--ivory)]" : "bg-[var(--ivory)]"}`}
+              className={`max-w-[82%] rounded-2xl p-4 text-sm leading-relaxed ${message.senderId === user?.id ? "ml-auto bg-[var(--ink)] text-[var(--ivory)]" : "bg-[var(--ivory)]"}`}
             >
               {message.body}
+              {message.attachments?.map((item) => (
+                <a
+                  key={item.url}
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 block font-semibold underline"
+                >
+                  {item.name}
+                </a>
+              ))}
               <div
-                className={`mt-2 text-[10px] ${message.senderId === "user-artist" ? "text-white/45" : "text-muted-foreground"}`}
+                className={`mt-2 text-[10px] ${message.senderId === user?.id ? "text-white/45" : "text-muted-foreground"}`}
               >
                 {new Date(message.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -1838,35 +2074,84 @@ function MessageCenter() {
               </div>
             </div>
           ))}
-          <div className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4">
-            <div className="eyebrow">Offer</div>
-            <div className="mt-2 flex items-center justify-between">
-              <div>
-                <div className="font-display text-2xl">Rs. 72,000</div>
-                <div className="text-xs text-muted-foreground">for {ARTWORKS[0].title}</div>
+          {offers.map((offer) => (
+            <div
+              key={String(offer.id)}
+              className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4"
+            >
+              <div className="eyebrow">Offer</div>
+              <div className="mt-2 flex items-center justify-between">
+                <div>
+                  <div className="font-display text-2xl">{formatPKR(Number(offer.amount))}</div>
+                  <div className="text-xs text-muted-foreground">
+                    for {currentArtwork?.title ?? "artwork"}
+                  </div>
+                </div>
+                <StatusBadge status={String(offer.status)} />
               </div>
-              <StatusBadge status={offer} />
+              {offer.status === "Pending" && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() =>
+                      void MessageService.updateOffer(String(offer.id), "accept").then((result) => {
+                        if (result.error) toast.error(result.error.message);
+                        else {
+                          setOffers((items) =>
+                            items.map((item) =>
+                              item.id === offer.id ? { ...item, status: "Accepted" } : item,
+                            ),
+                          );
+                          toast.success("Offer accepted");
+                        }
+                      })
+                    }
+                    className="btn-primary px-3"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() =>
+                      void (async () => {
+                        const amount = Number(window.prompt("Counter price in PKR"));
+                        if (!amount) return;
+                        const result = await MessageService.updateOffer(
+                          String(offer.id),
+                          "counter",
+                          amount,
+                        );
+                        result.error
+                          ? toast.error(result.error.message)
+                          : setOffers((items) =>
+                              items.map((item) =>
+                                item.id === offer.id ? { ...item, status: "Countered" } : item,
+                              ),
+                            );
+                      })()
+                    }
+                    className="btn-ghost px-3"
+                  >
+                    Counter
+                  </button>
+                  <button
+                    onClick={() =>
+                      void MessageService.updateOffer(String(offer.id), "reject").then((result) =>
+                        result.error
+                          ? toast.error(result.error.message)
+                          : setOffers((items) =>
+                              items.map((item) =>
+                                item.id === offer.id ? { ...item, status: "Rejected" } : item,
+                              ),
+                            ),
+                      )
+                    }
+                    className="btn-ghost px-3"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
             </div>
-            {offer === "Pending" && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    setOffer("Accepted");
-                    toast.success("Offer accepted");
-                  }}
-                  className="btn-primary px-3"
-                >
-                  Accept
-                </button>
-                <button onClick={() => setOffer("Countered")} className="btn-ghost px-3">
-                  Counter
-                </button>
-                <button onClick={() => setOffer("Rejected")} className="btn-ghost px-3">
-                  Reject
-                </button>
-              </div>
-            )}
-          </div>
+          ))}
         </div>
         <div className="border-t border-[var(--color-border)] p-4">
           {warning && (
@@ -1876,13 +2161,48 @@ function MessageCenter() {
               confirmed order.
             </div>
           )}
+          {attachment && (
+            <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--ivory)] px-3 py-2 text-xs">
+              <span className="truncate">{attachment.name}</span>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                aria-label="Remove attachment"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
-            <button
+            <label
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
               aria-label="Attach a file"
             >
               <Plus className="h-4 w-4" />
-            </button>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                disabled={uploadingAttachment}
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void (async () => {
+                    setUploadingAttachment(true);
+                    const result = await UploadService.upload(file, "message");
+                    setUploadingAttachment(false);
+                    if (result.error) return toast.error(result.error.message);
+                    if (result.data)
+                      setAttachment({
+                        url: result.data.url,
+                        name: file.name,
+                        mimeType: result.data.mimeType,
+                        size: result.data.size,
+                      });
+                  })();
+                }}
+              />
+            </label>
             <label className="sr-only" htmlFor="seller-message">
               Write a message
             </label>
@@ -1894,15 +2214,24 @@ function MessageCenter() {
               placeholder="Write a message…"
               className="art-field !rounded-xl"
             />
-            <button onClick={send} className="btn-primary self-end">
-              Send
+            <button
+              disabled={uploadingAttachment}
+              onClick={() => void send()}
+              className="btn-primary self-end disabled:opacity-45"
+            >
+              {uploadingAttachment ? "Uploading…" : "Send"}
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-            <button>Report conversation</button>
-            <button>Block buyer</button>
-            <button>Mark as spam</button>
-            <button>Archive</button>
+            <button onClick={() => void changeStatus("report", "Conversation reported")}>
+              Report conversation
+            </button>
+            <button onClick={() => void changeStatus("block", "Conversation blocked")}>
+              Block buyer
+            </button>
+            <button onClick={() => void changeStatus("archive", "Conversation archived")}>
+              Archive
+            </button>
           </div>
         </div>
       </main>
@@ -1910,64 +2239,17 @@ function MessageCenter() {
   );
 }
 
-function VideoRequest() {
-  const [date, setDate] = useState("2026-07-24");
-  const [time, setTime] = useState("16:00");
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[var(--ivory)]"
-          aria-label="Video consultation"
-        >
-          <Video className="h-4 w-4" />
-        </button>
-      </DialogTrigger>
-      <DialogContent className="bg-[var(--porcelain)]">
-        <DialogHeader>
-          <DialogTitle className="font-display text-3xl">Video consultation request</DialogTitle>
-          <DialogDescription>
-            Accept, suggest another time or decline. No live video provider is connected.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <DashboardField label="Preferred date">
-            <input
-              type="date"
-              className="art-field"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-            />
-          </DashboardField>
-          <DashboardField label="Time">
-            <input
-              type="time"
-              className="art-field"
-              value={time}
-              onChange={(event) => setTime(event.target.value)}
-            />
-          </DashboardField>
-          <DashboardField label="Mock meeting link" wide>
-            <input className="art-field" placeholder="Added after acceptance" />
-          </DashboardField>
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button onClick={() => toast.success("Consultation accepted")} className="btn-primary">
-            Accept
-          </button>
-          <button onClick={() => toast.info("New time suggested")} className="btn-ghost">
-            Suggest another time
-          </button>
-          <button onClick={() => toast.info("Consultation declined")} className="btn-ghost">
-            Decline
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function Customers({ planId }: { planId: PlanId }) {
+  const [customers, setCustomers] = useState<Array<Record<string, any>>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (planId !== "gallery" && planId !== "pro-plus") return;
+    void CustomerService.list().then((result) => {
+      if (result.data) setCustomers(result.data as Array<Record<string, any>>);
+      else if (result.error) toast.error(result.error.message);
+      setLoading(false);
+    });
+  }, [planId]);
   if (planId !== "gallery" && planId !== "pro-plus")
     return (
       <UpgradePanel
@@ -1999,12 +2281,12 @@ function Customers({ planId }: { planId: PlanId }) {
             </tr>
           </thead>
           <tbody>
-            {CUSTOMERS.map((customer) => (
+            {customers.map((customer) => (
               <tr key={customer.id} className="border-b border-[var(--color-border)]">
                 <td className="p-3">
                   <strong>{customer.buyerName}</strong>
                   <div className="mt-1 flex gap-1">
-                    {customer.tags.map((tag) => (
+                    {(customer.tags ?? []).map((tag: string) => (
                       <span key={tag} className="chip">
                         {tag}
                       </span>
@@ -2029,21 +2311,45 @@ function Customers({ planId }: { planId: PlanId }) {
           </tbody>
         </table>
       </div>
+      {loading && <p className="mt-5 text-sm text-muted-foreground">Loading customersâ€¦</p>}
+      {!loading && !customers.length && (
+        <p className="mt-5 text-sm text-muted-foreground">
+          Customers appear after a completed marketplace order.
+        </p>
+      )}
     </Panel>
   );
 }
 
 function Analytics({ planId }: { planId: PlanId }) {
-  const total = (key: keyof (typeof ANALYTICS)[number]) =>
-    ANALYTICS.reduce((sum, item) => sum + Number(item[key]), 0);
+  const [metrics, setMetrics] = useState<Record<string, number>>({});
+  const [chartData, setChartData] = useState<Array<Record<string, string | number>>>([]);
+  useEffect(() => {
+    void AnalyticsService.get("30d").then((result) => {
+      if (!result.data) {
+        if (result.error) toast.error(result.error.message);
+        return;
+      }
+      setMetrics(result.data.metrics);
+      const byDate = new Map<string, Record<string, string | number>>();
+      for (const point of result.data.series) {
+        const date = point._id.date;
+        const row = byDate.get(date) ?? { date, storeViews: 0, artworkViews: 0 };
+        if (point._id.type === "store_view") row.storeViews = point.count;
+        if (point._id.type === "artwork_view") row.artworkViews = point.count;
+        byDate.set(date, row);
+      }
+      setChartData([...byDate.values()]);
+    });
+  }, []);
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Store views", total("storeViews"), "+18.4%"],
-          ["Artwork views", total("artworkViews"), "+12.1%"],
-          ["Unique visitors", total("uniqueVisitors"), "+9.8%"],
-          ["Conversion rate", "1.6%", "+0.3%"],
+          ["Store views", metrics.storeViews ?? 0, "Last 30 days"],
+          ["Artwork views", metrics.artworkViews ?? 0, "Last 30 days"],
+          ["Unique visitors", metrics.uniqueVisitors ?? 0, "Last 30 days"],
+          ["Revenue", formatPKR(metrics.revenue ?? 0), `${metrics.orders ?? 0} orders`],
         ].map(([label, value, change]) => (
           <Metric
             key={label as string}
@@ -2063,7 +2369,7 @@ function Analytics({ planId }: { planId: PlanId }) {
         </div>
         <div className="mt-6 h-[330px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={ANALYTICS}>
+            <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="storeAnalytics" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stopColor="#263454" stopOpacity={0.35} />
@@ -2124,28 +2430,19 @@ function Analytics({ planId }: { planId: PlanId }) {
             </div>
           </Panel>
           <Panel>
-            <div className="eyebrow">Traffic and visitors</div>
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <AnalyticsList
-                title="Sources"
-                items={[
-                  ["ArtDera search", "38%"],
-                  ["Direct", "24%"],
-                  ["Instagram", "18%"],
-                  ["Collections", "12%"],
-                  ["Google", "8%"],
-                ]}
-              />
-              <AnalyticsList
-                title="Cities"
-                items={[
-                  ["Lahore", "32%"],
-                  ["Karachi", "26%"],
-                  ["Islamabad", "18%"],
-                  ["Rawalpindi", "9%"],
-                  ["Other", "15%"],
-                ]}
-              />
+            <div className="eyebrow">Marketplace engagement</div>
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              {[
+                ["Saves", metrics.saves ?? 0],
+                ["Messages", metrics.messages ?? 0],
+                ["Offers", metrics.offers ?? 0],
+                ["Video requests", metrics.videoRequests ?? 0],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl bg-[var(--ivory)] p-4">
+                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <strong className="mt-1 block font-display text-3xl">{value}</strong>
+                </div>
+              ))}
             </div>
           </Panel>
         </div>
@@ -2171,9 +2468,13 @@ function Analytics({ planId }: { planId: PlanId }) {
 function Promotions() {
   const [artwork, setArtwork] = useState(ARTWORKS[0].id);
   const [placement, setPlacement] = useState(PROMOTION_PLACEMENTS[0].id);
-  const [paymentMethod, setPaymentMethod] = useState("Demo card");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [submitting, setSubmitting] = useState(false);
   const [campaigns, setCampaigns] = useState(() => PromotionService.list());
   const selected = PROMOTION_PLACEMENTS.find((item) => item.id === placement)!;
+  const endDate = new Date(new Date(startDate).getTime() + selected.durationDays * 86400000)
+    .toISOString()
+    .slice(0, 10);
   return (
     <div className="space-y-6">
       <Panel>
@@ -2217,10 +2518,16 @@ function Promotions() {
               </DashboardField>
               <div className="grid gap-4 sm:grid-cols-2">
                 <DashboardField label="Start date">
-                  <input type="date" defaultValue="2026-07-24" className="art-field" />
+                  <input
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                    className="art-field"
+                  />
                 </DashboardField>
                 <DashboardField label="End date">
-                  <input type="date" defaultValue="2026-07-31" className="art-field" />
+                  <input type="date" value={endDate} readOnly className="art-field" />
                 </DashboardField>
               </div>
             </div>
@@ -2243,7 +2550,7 @@ function Promotions() {
             </p>
             <div className="mt-5 flex items-end justify-between">
               <div>
-                <div className="text-[11px] text-muted-foreground">Mock total</div>
+                <div className="text-[11px] text-muted-foreground">Server-verified total</div>
                 <div className="font-display text-3xl">
                   {selected.priceMin === selected.priceMax
                     ? formatPKR(selected.priceMin)
@@ -2252,49 +2559,54 @@ function Promotions() {
               </div>
               {selected.requiresApproval && <span className="chip">Admin approval</span>}
             </div>
-            <label className="mt-5 block">
-              <span className="eyebrow mb-2 block">Mock payment method</span>
-              <select
-                value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value)}
-                className="art-field"
-              >
-                <option>Demo card</option>
-                <option>Easypaisa simulation</option>
-                <option>JazzCash simulation</option>
-                <option>Raast simulation</option>
-              </select>
-            </label>
+            <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
+              {DEMO_PAYMENT_MODE
+                ? "Development payment mode is active. No card or wallet credentials are collected."
+                : "A payment intent will be created with the configured payment provider."}
+            </p>
             <button
-              onClick={() => {
-                const next = PromotionService.create({
-                  artworkId: artwork,
-                  placementId: selected.id,
-                  status: selected.requiresApproval ? "Pending" : "Scheduled",
-                  startDate: "2026-07-24",
-                  endDate: new Date(
-                    new Date("2026-07-24").getTime() + selected.durationDays * 86400000,
-                  )
-                    .toISOString()
-                    .slice(0, 10),
-                  price: selected.priceMin,
-                  impressions: 0,
-                  clicks: 0,
-                  saves: 0,
-                  messages: 0,
-                  conversions: 0,
-                });
-                setCampaigns(PromotionService.list());
-                toast.success(`Promotion paid with ${paymentMethod}`, {
-                  description: selected.requiresApproval
-                    ? "Status: Pending admin review"
-                    : "Status: Scheduled",
-                });
-                return next;
-              }}
+              disabled={submitting}
+              onClick={() =>
+                void (async () => {
+                  setSubmitting(true);
+                  const result = await PromotionService.create({
+                    artworkId: artwork,
+                    placementId: selected.id,
+                    status: "Pending",
+                    startDate,
+                    endDate,
+                    price: selected.priceMin,
+                    impressions: 0,
+                    clicks: 0,
+                    saves: 0,
+                    messages: 0,
+                    conversions: 0,
+                  });
+                  setSubmitting(false);
+                  if (result.error) {
+                    toast.error(result.error.message);
+                    return;
+                  }
+                  setCampaigns(PromotionService.list());
+                  toast.success(
+                    DEMO_PAYMENT_MODE ? "Promotion payment confirmed" : "Promotion payment created",
+                    {
+                      description: DEMO_PAYMENT_MODE
+                        ? selected.requiresApproval
+                          ? "Status: Pending admin review"
+                          : "The promotion is scheduled or active."
+                        : "Complete payment with the configured provider to submit the promotion.",
+                    },
+                  );
+                })
+              }
               className="btn-primary mt-5 w-full"
             >
-              Complete Mock Payment
+              {submitting
+                ? "Creating promotionâ€¦"
+                : DEMO_PAYMENT_MODE
+                  ? "Confirm development payment"
+                  : "Continue to payment"}
             </button>
           </div>
         </div>
@@ -2345,38 +2657,58 @@ function Promotions() {
 
 function Shipping() {
   const [weight, setWeight] = useState(3);
-  const [distance, setDistance] = useState("Lahore to Islamabad");
+  const [city, setCity] = useState("Islamabad");
+  const [province, setProvince] = useState("Islamabad Capital Territory");
   const [fragile, setFragile] = useState(false);
   const [framed, setFramed] = useState(true);
-  const courier = Math.round(
-    900 +
-      weight * 420 +
-      (distance.includes("Karachi") ? 900 : 350) +
-      (fragile ? 850 : 0) +
-      (framed ? 480 : 0),
+  const [packagingType, setPackagingType] = useState<"art_box" | "wooden_crate" | "tube">(
+    "art_box",
   );
-  const packaging = Math.round(700 + weight * 180 + (fragile ? 1100 : 0));
-  const handling = 450;
+  const [calculating, setCalculating] = useState(false);
+  const [estimate, setEstimate] = useState<{
+    courierCost: number;
+    packagingCost: number;
+    total: number;
+    ruleName: string;
+    notice: string;
+  } | null>(null);
+  async function calculate() {
+    setCalculating(true);
+    const result = await OrderService.estimateShipping({
+      city,
+      province,
+      weightKg: weight,
+      fragile,
+      framed,
+      packagingType,
+    });
+    setCalculating(false);
+    if (result.error) return toast.error(result.error.message);
+    if (result.data) setEstimate(result.data);
+  }
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_0.8fr]">
       <Panel>
         <div className="eyebrow">Shipping preferences</div>
         <h2 className="mt-2 font-display text-3xl">Estimate before you promise.</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          All values are frontend estimates. No courier service is connected.
+          ArtDera applies the active server-side shipping rules. The result remains an estimate
+          until a courier confirms a quote.
         </p>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          <DashboardField label="Pickup and delivery">
-            <select
-              value={distance}
-              onChange={(event) => setDistance(event.target.value)}
+          <DashboardField label="Delivery city">
+            <input
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
               className="art-field"
-            >
-              <option>Lahore to Islamabad</option>
-              <option>Karachi to Lahore</option>
-              <option>Islamabad to Peshawar</option>
-              <option>Multan to Quetta</option>
-            </select>
+            />
+          </DashboardField>
+          <DashboardField label="Delivery province">
+            <input
+              value={province}
+              onChange={(event) => setProvince(event.target.value)}
+              className="art-field"
+            />
           </DashboardField>
           <DashboardField label="Weight (kg)">
             <input
@@ -2388,45 +2720,59 @@ function Shipping() {
               className="art-field"
             />
           </DashboardField>
-          <DashboardField label="Width × height × depth">
-            <input className="art-field" defaultValue="60 × 76 × 5 cm" />
-          </DashboardField>
           <DashboardField label="Packaging type">
-            <select className="art-field">
-              <option>Corner protection + art box</option>
-              <option>Wooden crate</option>
-              <option>Protective tube</option>
+            <select
+              className="art-field"
+              value={packagingType}
+              onChange={(event) => setPackagingType(event.target.value as typeof packagingType)}
+            >
+              <option value="art_box">Corner protection + art box</option>
+              <option value="wooden_crate">Wooden crate</option>
+              <option value="tube">Protective tube</option>
             </select>
           </DashboardField>
           <DashboardToggle label="Framed" checked={framed} onChange={setFramed} />
           <DashboardToggle label="Glass or fragile" checked={fragile} onChange={setFragile} />
-          <DashboardToggle label="Domestic shipping" checked onChange={() => {}} />
-          <DashboardToggle label="International interest" checked={false} onChange={() => {}} />
+          <button
+            type="button"
+            disabled={calculating || !city.trim() || weight <= 0}
+            onClick={() => void calculate()}
+            className="btn-primary sm:col-span-2 disabled:opacity-45"
+          >
+            {calculating ? "Calculating…" : "Calculate estimate"}
+          </button>
         </div>
       </Panel>
       <Panel>
         <div className="eyebrow">Buyer estimate</div>
         <h2 className="mt-2 font-display text-3xl">Estimated delivery total</h2>
-        <dl className="mt-6 divide-y divide-[var(--color-border)]">
-          {[
-            ["Artwork price", 84000],
-            ["Estimated courier cost", courier],
-            ["Packaging cost", packaging],
-            ["Handling cost", handling],
-          ].map(([label, value]) => (
-            <div key={label as string} className="flex justify-between py-4 text-sm">
-              <dt>{label}</dt>
-              <dd className="font-semibold">{formatPKR(Number(value))}</dd>
+        {estimate ? (
+          <>
+            <dl className="mt-6 divide-y divide-[var(--color-border)]">
+              {[
+                ["Estimated courier cost", estimate.courierCost],
+                ["Packaging cost", estimate.packagingCost],
+              ].map(([label, value]) => (
+                <div key={label as string} className="flex justify-between py-4 text-sm">
+                  <dt>{label}</dt>
+                  <dd className="font-semibold">{formatPKR(Number(value))}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="flex justify-between border-t-2 border-[var(--ink)] pt-5 font-display text-2xl">
+              <span>Estimated total</span>
+              <span>{formatPKR(estimate.total)}</span>
             </div>
-          ))}
-        </dl>
-        <div className="flex justify-between border-t-2 border-[var(--ink)] pt-5 font-display text-2xl">
-          <span>Estimated total</span>
-          <span>{formatPKR(84000 + courier + packaging + handling)}</span>
-        </div>
+            <p className="mt-2 text-xs text-muted-foreground">Rule: {estimate.ruleName}</p>
+          </>
+        ) : (
+          <p className="mt-6 rounded-xl bg-[var(--ivory)] p-4 text-sm text-muted-foreground">
+            Enter a destination and calculate to load the active shipping rule.
+          </p>
+        )}
         <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
           <Truck className="h-4 w-4 shrink-0" />
-          This estimate can change after courier, packaging and insurance services are connected.
+          {estimate?.notice ?? "Courier, insurance and final packaging may change the amount."}
         </div>
         <div className="mt-5">
           <div className="eyebrow">Current shipment</div>
@@ -2448,6 +2794,9 @@ function Shipping() {
               </div>
             </div>
           ))}
+          {!SHIPMENTS.length && (
+            <p className="mt-3 text-sm text-muted-foreground">No active shipments.</p>
+          )}
         </div>
       </Panel>
     </div>
@@ -2456,14 +2805,29 @@ function Shipping() {
 
 function Payouts({ planId }: { planId: PlanId }) {
   const payout = PAYOUTS[0];
+  const totals = {
+    available: PAYOUTS.filter((item) => item.status === "Available").reduce(
+      (sum, item) => sum + item.net,
+      0,
+    ),
+    pending: PAYOUTS.filter((item) => item.status === "Pending").reduce(
+      (sum, item) => sum + item.net,
+      0,
+    ),
+    held: PAYOUTS.filter((item) => item.status === "On Hold").reduce(
+      (sum, item) => sum + item.net,
+      0,
+    ),
+    paid: PAYOUTS.filter((item) => item.status === "Paid").reduce((sum, item) => sum + item.net, 0),
+  };
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Available balance", "Rs. 128,400", WalletCards],
-          ["Pending balance", "Rs. 82,110", CircleDollarSign],
-          ["On hold", "Rs. 0", LockKeyhole],
-          ["Completed payouts", "Rs. 1.24m", CheckCircle2],
+          ["Available balance", formatPKR(totals.available), WalletCards],
+          ["Pending balance", formatPKR(totals.pending), CircleDollarSign],
+          ["On hold", formatPKR(totals.held), LockKeyhole],
+          ["Completed payouts", formatPKR(totals.paid), CheckCircle2],
         ].map(([label, value, Icon]) => {
           const ItemIcon = Icon as LucideIcon;
           return (
@@ -2475,63 +2839,63 @@ function Payouts({ planId }: { planId: PlanId }) {
           );
         })}
       </div>
-      <Panel>
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <div className="eyebrow">Estimated payout</div>
-            <h2 className="mt-2 font-display text-3xl">Order {ORDERS[0].orderNumber}</h2>
-          </div>
-          <StatusBadge status={payout.status} />
-        </div>
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <tbody>
-              {[
-                ["Gross artwork amount", payout.gross],
-                ["Commission", -payout.commission],
-                ["Shipping deduction", -payout.shippingDeduction],
-                ["Estimated tax deduction", -payout.taxEstimate],
-                ["Payment-processing deduction", -payout.processingDeduction],
-                ["Refund adjustment", payout.refundAdjustment],
-                ["Net payout", payout.net],
-              ].map(([label, value], index) => (
-                <tr
-                  key={label as string}
-                  className={`border-b border-[var(--color-border)] ${index === 6 ? "text-base font-bold" : ""}`}
-                >
-                  <td className="p-4">{label}</td>
-                  <td className="p-4 text-right">{formatPKR(Number(value))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-5 rounded-xl bg-[var(--ivory)] p-4 text-sm">
-          <strong>{PLANS[planId].payoutTime}</strong>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Timing begins after successful delivery and order completion when backend payouts are
-            connected.
-          </p>
-        </div>
-      </Panel>
-      <Panel>
-        <div className="eyebrow">Payout setup · Demo values only</div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {[
-            ["Account holder", "Areeba Hasan"],
-            ["Bank", "Demo Bank Pakistan"],
-            ["Account number", "•••• •••• 4821"],
-            ["IBAN", "PK00 DEMO 0000 0000 4821"],
-            ["Verification", "Pending backend connection"],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl bg-[var(--ivory)] p-4">
-              <div className="text-[11px] text-muted-foreground">{label}</div>
-              <div className="mt-2 text-sm font-semibold">{value}</div>
+      {payout ? (
+        <Panel>
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+            <div>
+              <div className="eyebrow">Estimated payout</div>
+              <h2 className="mt-2 font-display text-3xl">
+                Order{" "}
+                {ORDERS.find((order) => order.id === payout.orderId)?.orderNumber ?? payout.orderId}
+              </h2>
             </div>
-          ))}
-        </div>
-        <p className="mt-4 text-xs text-muted-foreground">
-          Do not enter real bank details in this frontend demo.
+            <StatusBadge status={payout.status} />
+          </div>
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <tbody>
+                {[
+                  ["Gross artwork amount", payout.gross],
+                  ["Commission", -payout.commission],
+                  ["Shipping deduction", -payout.shippingDeduction],
+                  ["Estimated tax deduction", -payout.taxEstimate],
+                  ["Payment-processing deduction", -payout.processingDeduction],
+                  ["Refund adjustment", payout.refundAdjustment],
+                  ["Net payout", payout.net],
+                ].map(([label, value], index) => (
+                  <tr
+                    key={label as string}
+                    className={`border-b border-[var(--color-border)] ${index === 6 ? "text-base font-bold" : ""}`}
+                  >
+                    <td className="p-4">{label}</td>
+                    <td className="p-4 text-right">{formatPKR(Number(value))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-5 rounded-xl bg-[var(--ivory)] p-4 text-sm">
+            <strong>{PLANS[planId].payoutTime}</strong>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Timing begins after successful delivery, the inspection period and order completion.
+            </p>
+          </div>
+        </Panel>
+      ) : (
+        <Panel>
+          <EmptyState
+            icon={WalletCards}
+            title="No payouts yet."
+            body="Eligible payouts are calculated by the API after an order completes delivery and inspection."
+            action={["View orders", "/artist/dashboard/orders"]}
+          />
+        </Panel>
+      )}
+      <Panel>
+        <div className="eyebrow">Payout provider</div>
+        <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+          Real bank disbursement is disabled until an authorized payout provider is configured.
+          ArtDera stores calculated payout records only; this page never collects bank credentials.
         </p>
       </Panel>
     </div>
@@ -2539,27 +2903,32 @@ function Payouts({ planId }: { planId: PlanId }) {
 }
 
 function Reviews() {
+  const [reviews, setReviews] = useState(() => [...REVIEWS]);
+  const average = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+    : 0;
   return (
     <Panel>
       <div className="flex items-end justify-between">
         <div>
           <div className="eyebrow">Store rating</div>
           <div className="mt-2 flex items-center gap-3">
-            <span className="font-display text-5xl">4.9</span>
+            <span className="font-display text-5xl">{average.toFixed(1)}</span>
             <div>
               <div className="flex text-amber-500">
                 {Array.from({ length: 5 }, (_, index) => (
                   <Star key={index} className="h-4 w-4" fill="currentColor" />
                 ))}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">38 verified-order reviews</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {reviews.length} verified-order reviews
+              </div>
             </div>
           </div>
         </div>
-        <button className="btn-ghost">Review settings</button>
       </div>
       <div className="mt-7 space-y-4">
-        {REVIEWS.map((review) => (
+        {reviews.map((review) => (
           <article key={review.id} className="rounded-xl border border-[var(--color-border)] p-5">
             <div className="flex justify-between">
               <div className="flex text-amber-500">
@@ -2572,18 +2941,54 @@ function Reviews() {
             <h3 className="mt-3 font-semibold">{review.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{review.body}</p>
             <div className="mt-4 flex gap-3 text-xs">
-              <button className="font-semibold underline">Reply</button>
-              <button className="text-muted-foreground">Report</button>
+              <button
+                onClick={() =>
+                  void (async () => {
+                    const response = window.prompt("Public response to this review")?.trim();
+                    if (!response) return;
+                    const result = await ReviewService.respond(review.id, response);
+                    if (result.error) return toast.error(result.error.message);
+                    setReviews((items) =>
+                      items.map((item) =>
+                        item.id === review.id ? { ...item, sellerResponse: response } : item,
+                      ),
+                    );
+                    toast.success("Review response published");
+                  })
+                }
+                className="font-semibold underline"
+              >
+                {review.sellerResponse ? "Update response" : "Reply"}
+              </button>
             </div>
+            {review.sellerResponse && (
+              <p className="mt-4 rounded-xl bg-[var(--ivory)] p-4 text-sm">
+                <strong>Seller response:</strong> {review.sellerResponse}
+              </p>
+            )}
           </article>
         ))}
       </div>
+      {!reviews.length && (
+        <p className="mt-7 text-sm text-muted-foreground">No verified-order reviews yet.</p>
+      )}
     </Panel>
   );
 }
 
 function Verification() {
-  const [submitted, setSubmitted] = useState(true);
+  const { user } = useAuth();
+  const store = user ? ArtistService.getStoreForUser(user.id) : undefined;
+  const [request, setRequest] = useState<Record<string, any> | undefined>();
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    void VerificationService.list().then((result) => {
+      if (result.data) setRequest(result.data[0]);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
+  const status = String(request?.identityStatus ?? request?.status ?? "Not submitted");
+  const approved = status.toLowerCase() === "approved";
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_0.7fr]">
       <Panel>
@@ -2592,7 +2997,7 @@ function Verification() {
             <div className="eyebrow">Verification request</div>
             <h2 className="mt-2 font-display text-3xl">Identity and portfolio review</h2>
           </div>
-          <StatusBadge status={submitted ? "Approved" : "Not submitted"} />
+          <StatusBadge status={status} />
         </div>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
           Verification is granted only after review. A subscription payment never guarantees
@@ -2600,30 +3005,46 @@ function Verification() {
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {[
-            ["Email", "Verified"],
-            ["Phone", "Verified"],
-            ["Identity", "Approved"],
-            ["Portfolio", "Approved"],
-            ["Ownership declaration", "Confirmed"],
-            ["Public badge", "Visible"],
+            ["Email", user?.emailVerified ? "Verified" : "Pending"],
+            ["Phone", request?.phoneVerified ? "Verified" : "Not verified"],
+            ["Identity", status],
+            ["Portfolio", String(request?.portfolioStatus ?? status)],
+            ["Ownership declaration", request?.ownershipDeclared ? "Confirmed" : "Pending"],
+            ["Public badge", approved ? "Visible" : "Not visible"],
           ].map(([label, status]) => (
             <div
               key={label}
               className="flex items-center justify-between rounded-xl bg-[var(--ivory)] p-4 text-sm"
             >
               <span>{label}</span>
-              <span className="font-semibold text-[var(--success)]">{status}</span>
+              <span className="font-semibold">{status}</span>
             </div>
           ))}
         </div>
         <button
-          onClick={() => {
-            setSubmitted(true);
-            toast.success("Mock request submitted");
-          }}
+          disabled={!store || !user || submitting}
+          onClick={() =>
+            void (async () => {
+              if (!store || !user || (user.role !== "artist" && user.role !== "gallery")) return;
+              setSubmitting(true);
+              const result = await VerificationService.submit({
+                storeId: store.id,
+                type: user.role,
+                submittedData: { ownershipDeclared: true },
+              });
+              setSubmitting(false);
+              if (result.error) return toast.error(result.error.message);
+              setRequest(result.data);
+              toast.success("Verification request submitted");
+            })
+          }
           className="btn-ghost mt-6"
         >
-          Submit updated information
+          {submitting
+            ? "Submittingâ€¦"
+            : request
+              ? "Submit updated information"
+              : "Submit for verification"}
         </button>
       </Panel>
       <Panel>
@@ -2654,7 +3075,9 @@ function Billing({
     initialSubscription?.billingCycle === "annual" ? "annual" : "monthly",
   );
   const [activePlanId, setActivePlanId] = useState(planId);
-  const [active, setActive] = useState(initialSubscription?.status !== "Cancelled");
+  const [active, setActive] = useState(
+    initialSubscription?.status !== "Cancelled" && !initialSubscription?.cancelAtPeriodEnd,
+  );
   const [changeOpen, setChangeOpen] = useState(false);
   const [requestedPlan, setRequestedPlan] = useState<PlanId | null>(null);
   const [downgradeEffective, setDowngradeEffective] = useState<"immediately" | "end-of-cycle">(
@@ -2720,14 +3143,16 @@ function Billing({
             </dl>
           </div>
           <div className="rounded-2xl bg-[var(--ivory)] p-5 text-right">
-            <div className="text-xs text-muted-foreground">Mock subscription</div>
+            <div className="text-xs text-muted-foreground">Subscription price</div>
             <div className="mt-2 font-display text-4xl">
               {formatPKR(
                 subscription?.price ??
                   (cycle === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice),
               )}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">No payment processed</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {subscription?.status ?? "No active subscription"}
+            </div>
           </div>
         </div>
         <div className="mt-7 flex flex-wrap gap-2">
@@ -2739,8 +3164,8 @@ function Billing({
               <DialogHeader>
                 <DialogTitle className="font-display text-3xl">Compare seller plans</DialogTitle>
                 <DialogDescription>
-                  All changes are simulations. Downgrading archives listings above the new limit; it
-                  never deletes artwork.
+                  Plan changes are validated by the API. An immediate downgrade archives listings
+                  above the new limit; artwork records and order history are preserved.
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -2762,47 +3187,64 @@ function Billing({
                     </div>
                     <button
                       disabled={item.id === activePlanId}
-                      onClick={() => {
-                        const movingUp =
-                          PLAN_ORDER.indexOf(item.id) > PLAN_ORDER.indexOf(activePlanId);
-                        if (movingUp) {
+                      onClick={() =>
+                        void (async () => {
+                          const movingUp =
+                            PLAN_ORDER.indexOf(item.id) > PLAN_ORDER.indexOf(activePlanId);
+                          if (movingUp) {
+                            if (
+                              item.id === "gallery" &&
+                              role !== "gallery" &&
+                              !window.confirm(
+                                "The Gallery Plan is for a gallery or art business managing multiple artists. Confirm that this account should register as a gallery or art business.",
+                              )
+                            )
+                              return;
+                            if (item.id === "gallery")
+                              SubscriptionService.confirmGalleryRegistration(userId);
+                            const selectedPlan = await SubscriptionService.selectPlan(
+                              item.id,
+                              "monthly",
+                            );
+                            if (selectedPlan.error) {
+                              toast.error(selectedPlan.error.message);
+                              return;
+                            }
+                            window.location.assign("/artist/checkout?change=upgrade");
+                            return;
+                          }
+                          const lost = plan.allowedModules.filter(
+                            (module) => !item.allowedModules.includes(module),
+                          );
                           if (
-                            item.id === "gallery" &&
-                            role !== "gallery" &&
                             !window.confirm(
-                              "The Gallery Plan is for a gallery or art business managing multiple artists. Confirm that this account should register as a gallery or art business.",
+                              `Downgrade to ${item.name}? The new listing limit is ${item.listingLimit ?? "fair-use unlimited"}, commission is ${item.commission}%, and these tools will be locked: ${lost.join(", ") || "none"}. Artwork and order history will not be deleted.`,
                             )
                           )
                             return;
-                          if (item.id === "gallery")
-                            SubscriptionService.confirmGalleryRegistration(userId);
-                          SubscriptionService.selectPlan(item.id, "monthly");
-                          window.location.assign("/artist/checkout?change=upgrade");
-                          return;
-                        }
-                        const lost = plan.allowedModules.filter(
-                          (module) => !item.allowedModules.includes(module),
-                        );
-                        if (
-                          !window.confirm(
-                            `Downgrade to ${item.name}? The new listing limit is ${item.listingLimit ?? "fair-use unlimited"}, commission is ${item.commission}%, and these tools will be locked: ${lost.join(", ") || "none"}. Artwork and order history will not be deleted.`,
-                          )
-                        )
-                          return;
-                        SubscriptionService.scheduleDowngrade(userId, item.id, downgradeEffective);
-                        if (downgradeEffective === "immediately") setActivePlanId(item.id);
-                        toast.success(
-                          downgradeEffective === "immediately"
-                            ? `Downgraded to ${item.name}`
-                            : `Downgrade to ${item.name} scheduled`,
-                          {
-                            description:
-                              downgradeEffective === "immediately"
-                                ? "Artwork over the new limit was archived, never deleted."
-                                : "The change will apply at the end of the current billing cycle.",
-                          },
-                        );
-                      }}
+                          const result = await SubscriptionService.scheduleDowngrade(
+                            userId,
+                            item.id,
+                            downgradeEffective,
+                          );
+                          if (!result) {
+                            toast.error("The plan change could not be completed");
+                            return;
+                          }
+                          if (downgradeEffective === "immediately") setActivePlanId(item.id);
+                          toast.success(
+                            downgradeEffective === "immediately"
+                              ? `Downgraded to ${item.name}`
+                              : `Downgrade to ${item.name} scheduled`,
+                            {
+                              description:
+                                downgradeEffective === "immediately"
+                                  ? "Artwork over the new limit was archived, never deleted."
+                                  : "The change will apply at the end of the current billing cycle.",
+                            },
+                          );
+                        })()
+                      }
                       className="btn-ghost mt-4 w-full disabled:cursor-default disabled:opacity-55"
                     >
                       {item.id === activePlanId
@@ -2829,29 +3271,27 @@ function Billing({
               <option value="immediately">Apply immediately</option>
             </select>
           </label>
-          {plan.annualPrice && (
+          {active && (
             <button
-              onClick={() => {
-                const next = cycle === "monthly" ? "annual" : "monthly";
-                setCycle(next);
-                SubscriptionService.activate(userId, activePlanId, next);
-                toast.success("Billing cycle updated in demo");
-              }}
+              onClick={() =>
+                void (async () => {
+                  if (
+                    !window.confirm(
+                      "Cancel this subscription at the end of its current billing period? Your store and historical records will be preserved.",
+                    )
+                  )
+                    return;
+                  const result = await SubscriptionService.updateStatus(userId, "Cancelled");
+                  if (!result) return toast.error("The cancellation could not be saved");
+                  setActive(false);
+                  toast.success("Cancellation scheduled for the end of the billing period");
+                })
+              }
               className="btn-ghost"
             >
-              Switch to {cycle === "monthly" ? "annual" : "monthly"}
+              Cancel subscription
             </button>
           )}
-          <button
-            onClick={() => {
-              setActive((value) => !value);
-              SubscriptionService.updateStatus(userId, active ? "Cancelled" : "Active");
-              toast.success(active ? "Subscription cancelled in demo" : "Subscription reactivated");
-            }}
-            className="btn-ghost"
-          >
-            {active ? "Cancel subscription" : "Reactivate"}
-          </button>
         </div>
       </Panel>
       <div className="grid gap-6 lg:grid-cols-2">
@@ -2883,7 +3323,7 @@ function Billing({
         </Panel>
       </div>
       <Panel>
-        <div className="eyebrow">Mock invoices</div>
+        <div className="eyebrow">Invoices</div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[600px] text-left text-sm">
             <thead>
@@ -2896,18 +3336,7 @@ function Billing({
               </tr>
             </thead>
             <tbody>
-              {(invoices.length
-                ? invoices
-                : [
-                    {
-                      id: "INV-DEMO-SEED",
-                      issuedAt: subscription?.startedAt ?? "2026-07-01",
-                      planId: activePlanId,
-                      total: subscription?.price ?? plan.monthlyPrice,
-                      status: "Paid" as const,
-                    },
-                  ]
-              ).map((invoice) => (
+              {invoices.map((invoice) => (
                 <tr key={invoice.id} className="border-b">
                   <td className="p-3 font-semibold">{invoice.id}</td>
                   <td className="p-3">{new Date(invoice.issuedAt).toLocaleDateString("en-PK")}</td>
@@ -2921,17 +3350,24 @@ function Billing({
             </tbody>
           </table>
         </div>
+        {!invoices.length && (
+          <p className="mt-5 text-sm text-muted-foreground">
+            No invoices have been issued for this account yet.
+          </p>
+        )}
       </Panel>
     </div>
   );
 }
 
 function ManagedArtists() {
-  const [artists, setArtists] = useState([
-    { name: "Hira Qureshi", city: "Karachi", works: 18, sales: 12, status: "Active" },
-    { name: "Usman Ali", city: "Lahore", works: 24, sales: 8, status: "Active" },
-    { name: "Zoya Kamal", city: "Islamabad", works: 11, sales: 5, status: "Review" },
-  ]);
+  const [artists, setArtists] = useState<Array<Record<string, any>>>([]);
+  useEffect(() => {
+    void GalleryService.artists().then((result) => {
+      if (result.data) setArtists(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <Panel>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -2940,13 +3376,16 @@ function ManagedArtists() {
           <h2 className="mt-2 font-display text-3xl">{artists.length} managed artists</h2>
         </div>
         <button
-          onClick={() => {
-            setArtists((values) => [
-              ...values,
-              { name: "New Artist", city: "Multan", works: 0, sales: 0, status: "Invited" },
-            ]);
-            toast.success("Artist invitation created");
-          }}
+          onClick={() =>
+            void (async () => {
+              const email = window.prompt("Artist account email")?.trim();
+              if (!email) return;
+              const result = await GalleryService.inviteArtist(email);
+              if (result.error) return toast.error(result.error.message);
+              setArtists((values) => [result.data!, ...values]);
+              toast.success("Artist invitation created");
+            })
+          }
           className="btn-primary"
         >
           <Plus className="h-4 w-4" /> Add artist
@@ -2962,45 +3401,71 @@ function ManagedArtists() {
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ivory)] font-display text-xl">
                 {artist.name
                   .split(" ")
-                  .map((value) => value[0])
+                  .map((value: string) => value[0])
                   .join("")}
               </div>
               <div>
                 <div className="font-semibold">{artist.name}</div>
-                <div className="text-xs text-muted-foreground">{artist.city}</div>
+                <div className="text-xs text-muted-foreground">
+                  {artist.email ?? artist.city ?? "Pakistan"}
+                </div>
               </div>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <div>
-                <div className="font-display text-2xl">{artist.works}</div>
-                <div className="text-[10px] text-muted-foreground">Inventory</div>
+                <div className="font-display text-2xl">{artist.city || "â€”"}</div>
+                <div className="text-[10px] text-muted-foreground">Location</div>
               </div>
               <div>
-                <div className="font-display text-2xl">{artist.sales}</div>
-                <div className="text-[10px] text-muted-foreground">Sales</div>
+                <div className="font-display text-2xl">{artist.status ?? "Invited"}</div>
+                <div className="text-[10px] text-muted-foreground">Relationship</div>
               </div>
             </div>
             <div className="mt-4 flex justify-between">
-              <StatusBadge status={artist.status} />
-              <button className="text-xs font-semibold underline">Edit profile</button>
+              <StatusBadge status={artist.status ?? "Invited"} />
             </div>
           </article>
         ))}
       </div>
+      {!artists.length && (
+        <p className="mt-6 text-sm text-muted-foreground">
+          No artists are connected to this gallery yet.
+        </p>
+      )}
     </Panel>
   );
 }
 
 function StaffAccounts() {
+  const [staff, setStaff] = useState<Array<Record<string, any>>>([]);
+  useEffect(() => {
+    void GalleryService.staff().then((result) => {
+      if (result.data) setStaff(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <Panel>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <div className="eyebrow">Staff accounts</div>
-          <h2 className="mt-2 font-display text-3xl">3 of 10 seats used</h2>
+          <h2 className="mt-2 font-display text-3xl">{staff.length} of 10 seats used</h2>
         </div>
         <button
-          onClick={() => toast.success("Mock staff invitation prepared")}
+          onClick={() =>
+            void (async () => {
+              const email = window.prompt("Staff member email")?.trim();
+              if (!email) return;
+              const result = await GalleryService.inviteStaff({
+                email,
+                role: "Gallery Staff",
+                permissions: ["manage_inventory", "manage_orders"],
+              });
+              if (result.error) return toast.error(result.error.message);
+              setStaff((items) => [result.data!, ...items]);
+              toast.success("Staff invitation created");
+            })
+          }
           className="btn-primary"
         >
           <Plus className="h-4 w-4" /> Invite staff
@@ -3008,8 +3473,7 @@ function StaffAccounts() {
       </div>
       <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
         <ShieldCheck className="h-4 w-4 shrink-0" />
-        Permission choices are a frontend simulation. Real role security must be enforced by the
-        backend.
+        Invitations, seat limits and assigned permissions are validated by the gallery API.
       </div>
       <div className="mt-5 overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
@@ -3023,7 +3487,7 @@ function StaffAccounts() {
             </tr>
           </thead>
           <tbody>
-            {STAFF.map((member) => (
+            {staff.map((member) => (
               <tr key={member.id} className="border-b">
                 <td className="p-3">
                   <strong>{member.name}</strong>
@@ -3035,18 +3499,53 @@ function StaffAccounts() {
                   <StatusBadge status={member.status} />
                 </td>
                 <td className="p-3">
-                  <button className="btn-ghost px-3">Permissions</button>
+                  <button
+                    onClick={() =>
+                      void (async () => {
+                        const next =
+                          String(member.status).toLowerCase() === "suspended"
+                            ? "active"
+                            : "suspended";
+                        const result = await GalleryService.updateStaff(member.id, {
+                          status: next,
+                        });
+                        if (result.error) return toast.error(result.error.message);
+                        setStaff((items) =>
+                          items.map((item) =>
+                            item.id === member.id
+                              ? { ...item, status: next === "active" ? "Active" : "Suspended" }
+                              : item,
+                          ),
+                        );
+                      })
+                    }
+                    className="btn-ghost px-3"
+                  >
+                    {String(member.status).toLowerCase() === "suspended" ? "Activate" : "Suspend"}
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {!staff.length && (
+        <p className="mt-5 text-sm text-muted-foreground">
+          No staff accounts or pending invitations.
+        </p>
+      )}
     </Panel>
   );
 }
 
 function Exhibitions() {
+  const [exhibitions, setExhibitions] = useState<Array<Record<string, any>>>([]);
+  useEffect(() => {
+    void GalleryService.exhibitions().then((result) => {
+      if (result.data) setExhibitions(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <div className="space-y-6">
       <Panel>
@@ -3056,23 +3555,53 @@ function Exhibitions() {
             <h2 className="mt-2 font-display text-3xl">Curate public programmes.</h2>
           </div>
           <button
-            onClick={() => toast.success("New exhibition draft created")}
+            onClick={() =>
+              void (async () => {
+                const name = window.prompt("Exhibition name")?.trim();
+                if (!name) return;
+                const startAt = new Date(Date.now() + 7 * 86400000);
+                const endAt = new Date(Date.now() + 30 * 86400000);
+                const result = await GalleryService.createExhibition({
+                  name,
+                  slug: `${name
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "")}-${Date.now().toString(36)}`,
+                  description: "",
+                  venue: "",
+                  startAt: startAt.toISOString(),
+                  endAt: endAt.toISOString(),
+                  artistIds: [],
+                  artworkIds: [],
+                  type: "hybrid",
+                  status: "draft",
+                  isPublished: false,
+                });
+                if (result.error) return toast.error(result.error.message);
+                setExhibitions((items) => [result.data!, ...items]);
+                toast.success("Exhibition draft created");
+              })
+            }
             className="btn-primary"
           >
             <Plus className="h-4 w-4" /> New exhibition
           </button>
         </div>
       </Panel>
-      {EXHIBITIONS.map((exhibition) => (
+      {exhibitions.map((exhibition) => (
         <article
           key={exhibition.id}
           className="grid overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] md:grid-cols-[280px_1fr]"
         >
-          <img
-            src={exhibition.coverImage}
-            alt={exhibition.name}
-            className="h-full min-h-56 w-full object-cover"
-          />
+          {exhibition.coverImage ? (
+            <img
+              src={exhibition.coverImage}
+              alt={exhibition.name}
+              className="h-full min-h-56 w-full object-cover"
+            />
+          ) : (
+            <div className="min-h-56 bg-[var(--ivory)]" aria-hidden="true" />
+          )}
           <div className="p-6">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={exhibition.published ? "Published" : "Draft"} />
@@ -3096,71 +3625,55 @@ function Exhibitions() {
               </span>
             </div>
             <div className="mt-6 flex gap-2">
-              <button className="btn-primary">Edit exhibition</button>
-              <button className="btn-ghost">View public page</button>
+              <button
+                onClick={() =>
+                  void (async () => {
+                    const name = window.prompt("Exhibition name", exhibition.name)?.trim();
+                    if (!name || name === exhibition.name) return;
+                    const result = await GalleryService.updateExhibition(exhibition.id, { name });
+                    if (result.error) return toast.error(result.error.message);
+                    setExhibitions((items) =>
+                      items.map((item) => (item.id === exhibition.id ? { ...item, name } : item)),
+                    );
+                    toast.success("Exhibition updated");
+                  })
+                }
+                className="btn-primary"
+              >
+                Edit exhibition
+              </button>
             </div>
           </div>
         </article>
       ))}
+      {!exhibitions.length && (
+        <Panel>
+          <p className="text-sm text-muted-foreground">No exhibitions have been created.</p>
+        </Panel>
+      )}
     </div>
   );
 }
 
 function GalleryReports() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Sales by artists", "Rs. 4.8m", "+14%"],
-          ["Inventory value", "Rs. 18.2m", "86 works"],
-          ["Promotion return", "4.2×", "12 campaigns"],
-          ["Pending payout", "Rs. 684k", "6 orders"],
-        ].map(([label, value, change]) => (
-          <Metric key={label} label={label} value={value} change={change} />
-        ))}
-      </div>
-      <Panel>
-        <div className="eyebrow">Report library</div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            "Sales by artist",
-            "Sales by artwork",
-            "Inventory status",
-            "Top categories",
-            "Buyer locations",
-            "Staff activity",
-            "Promotion performance",
-            "Payout report",
-          ].map((label) => (
-            <button
-              key={label}
-              onClick={() =>
-                toast.success(`${label} report prepared`, {
-                  description: "Demo report — no sensitive data exported.",
-                })
-              }
-              className="flex min-h-20 items-center justify-between rounded-xl bg-[var(--ivory)] p-4 text-left text-sm font-semibold"
-            >
-              {label}
-              <FileText className="h-5 w-5 text-[var(--oxblood)]" />
-            </button>
-          ))}
-        </div>
-      </Panel>
-    </div>
-  );
+  // Gallery reports share the same server-aggregated analytics source as the seller view.
+  return <Analytics planId="gallery" />;
 }
 
 function Support({ planId }: { planId: PlanId }) {
-  const [sent, setSent] = useState(false);
+  const [ticket, setTicket] = useState<Record<string, any> | undefined>();
+  const [topic, setTopic] = useState("orders");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_0.7fr]">
       <Panel>
-        {sent ? (
+        {ticket ? (
           <EmptyState
             icon={CheckCircle2}
             title="Support request sent."
-            body="A demo ticket AD-SUP-1048 is now Open. No external message was sent."
+            body={`Ticket ${ticket.ticketNumber ?? ticket.id} is open and stored in your account.`}
             action={["Send another", "/artist/dashboard/support"]}
           />
         ) : (
@@ -3169,22 +3682,53 @@ function Support({ planId }: { planId: PlanId }) {
             <h2 className="mt-2 font-display text-3xl">How can we help?</h2>
             <div className="mt-6 grid gap-4">
               <DashboardField label="Topic">
-                <select className="art-field">
-                  <option>Orders and shipping</option>
-                  <option>Artwork review</option>
-                  <option>Verification</option>
-                  <option>Subscription</option>
-                  <option>Technical issue</option>
+                <select
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  className="art-field"
+                >
+                  <option value="orders">Orders and shipping</option>
+                  <option value="artwork">Artwork review</option>
+                  <option value="verification">Verification</option>
+                  <option value="subscription">Subscription</option>
+                  <option value="technical">Technical issue</option>
                 </select>
               </DashboardField>
               <DashboardField label="Subject">
-                <input className="art-field" />
+                <input
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  maxLength={180}
+                  className="art-field"
+                />
               </DashboardField>
               <DashboardField label="Message">
-                <textarea rows={6} className="art-field !rounded-xl" />
+                <textarea
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  maxLength={5000}
+                  rows={6}
+                  className="art-field !rounded-xl"
+                />
               </DashboardField>
-              <button onClick={() => setSent(true)} className="btn-primary justify-self-start">
-                Send support request
+              <button
+                disabled={sending || subject.trim().length < 3 || message.trim().length < 10}
+                onClick={() =>
+                  void (async () => {
+                    setSending(true);
+                    const result = await SupportService.create({
+                      category: topic,
+                      subject,
+                      description: message,
+                    });
+                    setSending(false);
+                    if (result.error) return toast.error(result.error.message);
+                    setTicket(result.data as Record<string, any>);
+                  })
+                }
+                className="btn-primary justify-self-start"
+              >
+                {sending ? "Sendingâ€¦" : "Send support request"}
               </button>
             </div>
           </>
@@ -3228,31 +3772,59 @@ function Support({ planId }: { planId: PlanId }) {
 }
 
 function SettingsPage() {
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState(user?.fullName ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [preferences, setPreferences] = useState<Record<string, boolean>>({
+    email: true,
+    inApp: true,
+    marketing: false,
+    orderUpdates: true,
+    messageUpdates: true,
+  });
+  useEffect(() => {
+    void NotificationService.preferences().then((result) => {
+      if (result.data) setPreferences(result.data);
+    });
+  }, []);
   return (
     <div className="space-y-6">
       <Panel>
         <div className="eyebrow">Profile settings</div>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <DashboardField label="Full name">
-            <input className="art-field" defaultValue="Areeba Hasan" />
+            <input
+              className="art-field"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              maxLength={120}
+            />
           </DashboardField>
           <DashboardField label="Email">
-            <input type="email" className="art-field" defaultValue="artist@artdera.demo" />
-          </DashboardField>
-          <DashboardField label="Language">
-            <select className="art-field">
-              <option>English</option>
-              <option>Urdu</option>
-            </select>
-          </DashboardField>
-          <DashboardField label="Timezone">
-            <select className="art-field">
-              <option>Pakistan Standard Time (UTC+5)</option>
-            </select>
+            <input
+              type="email"
+              className="art-field"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              maxLength={254}
+            />
           </DashboardField>
         </div>
         <button
-          onClick={() => toast.success("Profile settings saved")}
+          onClick={() =>
+            void (async () => {
+              if (!user) return;
+              const profile = await UserService.updateProfile({ fullName });
+              if (profile.error) return toast.error(profile.error.message);
+              if (email.trim().toLowerCase() !== user.email.toLowerCase()) {
+                const contact = await UserService.updateContact(user.id, { email });
+                if (!contact) return toast.error("The email address could not be updated");
+                toast.success("Profile saved. Verify the new email address to continue.");
+                return;
+              }
+              toast.success("Profile settings saved");
+            })
+          }
           className="btn-primary mt-6"
         >
           Save profile
@@ -3262,30 +3834,50 @@ function SettingsPage() {
         <div className="eyebrow">Notification preferences</div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {[
-            "New messages",
-            "New offers",
-            "Order updates",
-            "Artwork review",
-            "Promotion status",
-            "Payout updates",
-            "Support responses",
-            "Subscription reminders",
-          ].map((label) => (
-            <DashboardToggle key={label} label={label} checked onChange={() => {}} />
+            ["Email notifications", "email"],
+            ["In-app notifications", "inApp"],
+            ["Marketplace updates", "marketing"],
+            ["Order updates", "orderUpdates"],
+            ["Message and offer updates", "messageUpdates"],
+          ].map(([label, key]) => (
+            <DashboardToggle
+              key={key}
+              label={label}
+              checked={Boolean(preferences[key])}
+              onChange={(value) => setPreferences((current) => ({ ...current, [key]: value }))}
+            />
           ))}
         </div>
+        <button
+          onClick={() =>
+            void NotificationService.updatePreferences(preferences).then((result) =>
+              result.error
+                ? toast.error(result.error.message)
+                : toast.success("Notification preferences saved"),
+            )
+          }
+          className="btn-primary mt-6"
+        >
+          Save notification preferences
+        </button>
       </Panel>
       <Panel>
-        <div className="eyebrow">Privacy and security simulation</div>
+        <div className="eyebrow">Privacy and security</div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
-            onClick={() => toast.info("Password reset flow opened in demo")}
+            onClick={() => window.location.assign("/auth/forgot")}
             className="btn-ghost justify-start"
           >
             <LockKeyhole className="h-4 w-4" /> Change password
           </button>
           <button
-            onClick={() => toast.info("All other demo sessions signed out")}
+            onClick={() =>
+              void UserService.revokeOtherSessions().then((result) =>
+                result.error
+                  ? toast.error(result.error.message)
+                  : toast.success(`${result.data?.revoked ?? 0} other sessions signed out`),
+              )
+            }
             className="btn-ghost justify-start"
           >
             <ShieldCheck className="h-4 w-4" /> Sign out other sessions
@@ -3316,7 +3908,12 @@ function NotificationBell({ userId }: { userId: string }) {
           <div className="flex items-center justify-between p-2">
             <strong>Notifications</strong>
             <button
-              onClick={() => setItems((values) => values.map((item) => ({ ...item, read: true })))}
+              onClick={() =>
+                void NotificationService.readAll().then((result) => {
+                  if (result.error) return toast.error(result.error.message);
+                  setItems((values) => values.map((item) => ({ ...item, read: true })));
+                })
+              }
               className="text-[11px] font-semibold underline"
             >
               Mark all read
@@ -3328,6 +3925,9 @@ function NotificationBell({ userId }: { userId: string }) {
                 <a
                   key={item.id}
                   href={item.href}
+                  onClick={() => {
+                    if (!item.read) void NotificationService.read(item.id);
+                  }}
                   className={`block rounded-xl p-3 ${item.read ? "" : "bg-[var(--ivory)]"}`}
                 >
                   <div className="text-xs font-semibold">{item.title}</div>
@@ -3367,11 +3967,11 @@ function DashboardAccess() {
         <LockKeyhole className="mx-auto h-9 w-9 text-[var(--oxblood)]" />
         <h1 className="mt-5 font-display text-4xl">Seller sign-in required.</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          This frontend route is role-aware, but real authorization must be enforced by the future
-          backend.
+          Your account does not have access to this workspace. Sign in with an artist or gallery
+          account, or complete seller onboarding.
         </p>
         <Link to="/auth/login" className="btn-primary mt-6">
-          Sign in to seller demo
+          Sign in as a seller
         </Link>
       </div>
     </div>
@@ -3442,7 +4042,7 @@ function PrivacyNotice() {
     <div className="flex gap-3 rounded-xl bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
       <ShieldCheck className="h-4 w-4 shrink-0" />
       Customer contact information is hidden before a completed order. Marketing consent is shown
-      separately, and sensitive data cannot be exported in this demo.
+      separately, and sensitive data is protected by role-based access controls.
     </div>
   );
 }
@@ -3526,25 +4126,5 @@ function DashboardToggle({
         className="accent-[var(--oxblood)]"
       />
     </label>
-  );
-}
-function AnalyticsList({ title, items }: { title: string; items: string[][] }) {
-  return (
-    <div>
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="mt-3 space-y-3">
-        {items.map(([label, value]) => (
-          <div key={label}>
-            <div className="flex justify-between text-xs">
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-            <div className="mt-1 h-1.5 rounded-full bg-[var(--ivory)]">
-              <div className="h-full rounded-full bg-[var(--indigo)]" style={{ width: value }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }

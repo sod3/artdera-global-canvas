@@ -53,7 +53,11 @@ function cookieOptions() {
   };
 }
 
-async function startSession(req: Parameters<typeof audit>[0], res: Parameters<typeof ok>[0], userId: unknown) {
+async function startSession(
+  req: Parameters<typeof audit>[0],
+  res: Parameters<typeof ok>[0],
+  userId: unknown,
+) {
   const token = randomToken();
   await AuthSessionModel.create({
     userId,
@@ -65,9 +69,16 @@ async function startSession(req: Parameters<typeof audit>[0], res: Parameters<ty
   res.cookie(SESSION_COOKIE, token, cookieOptions());
 }
 
-async function issueCode(userId: unknown, purpose: "email_verification" | "phone_verification" | "password_reset") {
+async function issueCode(
+  userId: unknown,
+  purpose: "email_verification" | "phone_verification" | "password_reset",
+) {
   const env = getEnv();
-  const recent = await OneTimeTokenModel.findOne({ userId, purpose, consumedAt: { $exists: false } })
+  const recent = await OneTimeTokenModel.findOne({
+    userId,
+    purpose,
+    consumedAt: { $exists: false },
+  })
     .sort({ createdAt: -1 })
     .lean();
   if (recent?.sentAt && recent.sentAt.getTime() > Date.now() - 60_000) {
@@ -113,7 +124,9 @@ async function destinationFor(user: { _id: unknown; role: string; emailVerified:
   if (user.role === "admin") return "/admin";
   if (user.role === "buyer") return "/account";
   if (!user.emailVerified) return "/artist/verify";
-  const subscription = await SubscriptionModel.findOne({ userId: user._id }).sort({ createdAt: -1 }).lean();
+  const subscription = await SubscriptionModel.findOne({ userId: user._id })
+    .sort({ createdAt: -1 })
+    .lean();
   if (!subscription) return "/sell/plans";
   if (subscription.planId !== "free" && subscription.status !== "active") return "/artist/checkout";
   const profile =
@@ -152,12 +165,10 @@ authRouter.post(
     const phone = input.phone ?? input.mobile;
     const phoneNormalized = normalizePhone(phone);
     const exists = await UserModel.exists({
-      $or: [
-        { emailNormalized },
-        ...(phoneNormalized ? [{ phoneNormalized }] : []),
-      ],
+      $or: [{ emailNormalized }, ...(phoneNormalized ? [{ phoneNormalized }] : [])],
     });
-    if (exists) throw new ApiError(409, "ACCOUNT_EXISTS", "An account already uses that email or phone");
+    if (exists)
+      throw new ApiError(409, "ACCOUNT_EXISTS", "An account already uses that email or phone");
 
     let selection: { planId: string; billingCycle: string } | undefined;
     const selectionToken = req.cookies?.[PLAN_SELECTION_COOKIE] as string | undefined;
@@ -171,10 +182,17 @@ authRouter.post(
       if (pending) selection = { planId: pending.planId, billingCycle: pending.billingCycle };
     }
     if (!selection && input.planId) {
-      selection = { planId: input.planId, billingCycle: input.billingCycle ?? (input.planId === "free" ? "free" : "monthly") };
+      selection = {
+        planId: input.planId,
+        billingCycle: input.billingCycle ?? (input.planId === "free" ? "free" : "monthly"),
+      };
     }
     if (["artist", "gallery"].includes(input.role) && !selection)
-      throw new ApiError(422, "PLAN_SELECTION_REQUIRED", "Choose a valid plan before creating a seller account");
+      throw new ApiError(
+        422,
+        "PLAN_SELECTION_REQUIRED",
+        "Choose a valid plan before creating a seller account",
+      );
     if (input.role === "gallery" && selection?.planId !== "gallery")
       throw new ApiError(422, "GALLERY_PLAN_REQUIRED", "Gallery accounts require the Gallery plan");
 
@@ -197,9 +215,21 @@ authRouter.post(
     });
 
     if (input.role === "artist") {
-      await ArtistProfileModel.create({ userId: user._id, displayName: user.fullName, city: user.city, province: user.province, country: user.country });
+      await ArtistProfileModel.create({
+        userId: user._id,
+        displayName: user.fullName,
+        city: user.city,
+        province: user.province,
+        country: user.country,
+      });
     } else if (input.role === "gallery") {
-      await GalleryProfileModel.create({ userId: user._id, galleryName: user.fullName, city: user.city, province: user.province, country: user.country });
+      await GalleryProfileModel.create({
+        userId: user._id,
+        galleryName: user.fullName,
+        city: user.city,
+        province: user.province,
+        country: user.country,
+      });
     }
     if (selection) {
       const { plan, cycle, price } = await getActivePlan(selection.planId, selection.billingCycle);
@@ -214,15 +244,31 @@ authRouter.post(
         currency: "PKR",
         featuresSnapshot: plan.permissions,
       });
-      await ListingQuotaModel.updateOne({ userId: user._id }, { $setOnInsert: { activeListings: 0 } }, { upsert: true });
+      await ListingQuotaModel.updateOne(
+        { userId: user._id },
+        { $setOnInsert: { activeListings: 0 } },
+        { upsert: true },
+      );
     }
     const code = await issueCode(user._id, "email_verification");
     await emailProvider().sendVerificationCode({ email: user.email, code, expiresInMinutes: 10 });
-    await notify(user._id, "new_account", "Welcome to ArtDera", "Your account was created. Verify your email to continue.", "/artist/verify");
+    await notify(
+      user._id,
+      "new_account",
+      "Welcome to ArtDera",
+      "Your account was created. Verify your email to continue.",
+      "/artist/verify",
+    );
     await startSession(req, res, user._id);
     if (selectionToken)
-      await PendingPlanSelectionModel.updateOne({ tokenHash: hashToken(selectionToken) }, { $set: { userId: user._id } });
-    await audit(req, "user.registered", "User", user._id, undefined, { role: user.role, status: user.status });
+      await PendingPlanSelectionModel.updateOne(
+        { tokenHash: hashToken(selectionToken) },
+        { $set: { userId: user._id } },
+      );
+    await audit(req, "user.registered", "User", user._id, undefined, {
+      role: user.role,
+      status: user.status,
+    });
     return ok(res, serializeUser(user), "Account created", 201);
   }),
 );
@@ -230,17 +276,37 @@ authRouter.post(
 authRouter.post(
   "/login",
   asyncRoute(async (req, res) => {
-    const input = z.object({ email: z.string().email(), password: z.string().min(1).max(128) }).strict().parse(req.body);
-    const user = await UserModel.findOne({ emailNormalized: normalizeEmail(input.email) }).select("+passwordHash +failedLoginAttempts +lockedUntil");
-    const generic = new ApiError(401, "INVALID_CREDENTIALS", "The email or password is not correct");
+    const input = z
+      .object({ email: z.string().email(), password: z.string().min(1).max(128) })
+      .strict()
+      .parse(req.body);
+    const user = await UserModel.findOne({ emailNormalized: normalizeEmail(input.email) }).select(
+      "+passwordHash +failedLoginAttempts +lockedUntil",
+    );
+    const generic = new ApiError(
+      401,
+      "INVALID_CREDENTIALS",
+      "The email or password is not correct",
+    );
     if (!user) {
-      await bcrypt.compare(input.password, "$2b$12$tR6Yh6F4QX9pFqD.Mq65ZupjHng9bGnhV7M99S5FsUjA0WmZs7teS");
+      await bcrypt.compare(
+        input.password,
+        "$2b$12$tR6Yh6F4QX9pFqD.Mq65ZupjHng9bGnhV7M99S5FsUjA0WmZs7teS",
+      );
       throw generic;
     }
     if (["suspended", "deleted"].includes(user.status))
-      throw new ApiError(403, "ACCOUNT_SUSPENDED", "This account is not available. Contact support.");
+      throw new ApiError(
+        403,
+        "ACCOUNT_SUSPENDED",
+        "This account is not available. Contact support.",
+      );
     if (user.lockedUntil && user.lockedUntil > new Date())
-      throw new ApiError(423, "ACCOUNT_TEMPORARILY_LOCKED", "Too many attempts. Try again later or reset your password.");
+      throw new ApiError(
+        423,
+        "ACCOUNT_TEMPORARILY_LOCKED",
+        "Too many attempts. Try again later or reset your password.",
+      );
     if (!(await bcrypt.compare(input.password, user.passwordHash))) {
       user.failedLoginAttempts += 1;
       if (user.failedLoginAttempts >= 5) {
@@ -252,7 +318,8 @@ authRouter.post(
     }
     user.failedLoginAttempts = 0;
     user.lockedUntil = undefined;
-    if (user.status === "locked") user.status = user.emailVerified ? "active" : "pending_verification";
+    if (user.status === "locked")
+      user.status = user.emailVerified ? "active" : "pending_verification";
     user.lastLoginAt = new Date();
     await user.save();
     await startSession(req, res, user._id);
@@ -265,7 +332,9 @@ authRouter.get(
   "/session",
   asyncRoute(async (req, res) => {
     if (!req.auth) return ok(res, { user: null, subscription: null });
-    const subscription = await SubscriptionModel.findOne({ userId: req.auth.user._id }).sort({ createdAt: -1 }).lean();
+    const subscription = await SubscriptionModel.findOne({ userId: req.auth.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
     return ok(res, {
       user: serializeUser(req.auth.user),
       subscription: subscription ? serializeSubscription(subscription) : null,
@@ -278,7 +347,10 @@ authRouter.post(
   "/logout",
   requireAuth,
   asyncRoute(async (req, res) => {
-    await AuthSessionModel.updateOne({ _id: req.auth!.sessionId }, { $set: { revokedAt: new Date() } });
+    await AuthSessionModel.updateOne(
+      { _id: req.auth!.sessionId },
+      { $set: { revokedAt: new Date() } },
+    );
     res.clearCookie(SESSION_COOKIE, { ...cookieOptions(), maxAge: undefined });
     return ok(res, { loggedOut: true });
   }),
@@ -288,7 +360,10 @@ authRouter.post(
   "/refresh",
   requireAuth,
   asyncRoute(async (req, res) => {
-    await AuthSessionModel.updateOne({ _id: req.auth!.sessionId }, { $set: { revokedAt: new Date() } });
+    await AuthSessionModel.updateOne(
+      { _id: req.auth!.sessionId },
+      { $set: { revokedAt: new Date() } },
+    );
     await startSession(req, res, req.auth!.user._id);
     return ok(res, { user: serializeUser(req.auth!.user) });
   }),
@@ -298,13 +373,18 @@ authRouter.post(
   "/verify-email",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const { code } = z.object({ code: z.string().regex(/^\d{6}$/) }).strict().parse(req.body);
+    const { code } = z
+      .object({ code: z.string().regex(/^\d{6}$/) })
+      .strict()
+      .parse(req.body);
     await verifyCode(req.auth!.user._id, "email_verification", code);
     const user = req.auth!.user;
     user.emailVerified = true;
     user.status = "active";
     await user.save();
-    const subscription = await SubscriptionModel.findOne({ userId: user._id }).sort({ createdAt: -1 });
+    const subscription = await SubscriptionModel.findOne({ userId: user._id }).sort({
+      createdAt: -1,
+    });
     if (subscription?.planId === "free") {
       const now = new Date();
       subscription.status = "active";
@@ -312,9 +392,17 @@ authRouter.post(
       subscription.currentPeriodStart = now;
       await subscription.save();
     }
-    await notify(user._id, "account_verified", "Account verified", "Your email has been verified successfully.");
+    await notify(
+      user._id,
+      "account_verified",
+      "Account verified",
+      "Your email has been verified successfully.",
+    );
     await audit(req, "user.email_verified", "User", user._id);
-    return ok(res, { verified: true, subscription: subscription ? serializeSubscription(subscription.toObject()) : null });
+    return ok(res, {
+      verified: true,
+      subscription: subscription ? serializeSubscription(subscription.toObject()) : null,
+    });
   }),
 );
 
@@ -323,7 +411,11 @@ authRouter.post(
   requireAuth,
   asyncRoute(async (req, res) => {
     const code = await issueCode(req.auth!.user._id, "email_verification");
-    await emailProvider().sendVerificationCode({ email: req.auth!.user.email, code, expiresInMinutes: 10 });
+    await emailProvider().sendVerificationCode({
+      email: req.auth!.user.email,
+      code,
+      expiresInMinutes: 10,
+    });
     return ok(res, { accepted: true }, "If delivery is configured, a new code has been sent");
   }),
 );
@@ -332,7 +424,10 @@ authRouter.post(
   "/forgot-password",
   asyncRoute(async (req, res) => {
     const { email } = z.object({ email: z.string().email() }).strict().parse(req.body);
-    const user = await UserModel.findOne({ emailNormalized: normalizeEmail(email), status: { $ne: "deleted" } });
+    const user = await UserModel.findOne({
+      emailNormalized: normalizeEmail(email),
+      status: { $ne: "deleted" },
+    });
     if (user) {
       const code = await issueCode(user._id, "password_reset");
       await emailProvider().sendPasswordReset({ email: user.email, code, expiresInMinutes: 10 });
@@ -344,17 +439,31 @@ authRouter.post(
 authRouter.post(
   "/reset-password",
   asyncRoute(async (req, res) => {
-    const input = z.object({ email: z.string().email(), code: z.string().regex(/^\d{6}$/), password: passwordSchema }).strict().parse(req.body);
-    const user = await UserModel.findOne({ emailNormalized: normalizeEmail(input.email) }).select("+passwordHash");
-    if (!user) throw new ApiError(422, "INVALID_OR_EXPIRED_CODE", "The code is invalid or has expired");
+    const input = z
+      .object({
+        email: z.string().email(),
+        code: z.string().regex(/^\d{6}$/),
+        password: passwordSchema,
+      })
+      .strict()
+      .parse(req.body);
+    const user = await UserModel.findOne({ emailNormalized: normalizeEmail(input.email) }).select(
+      "+passwordHash",
+    );
+    if (!user)
+      throw new ApiError(422, "INVALID_OR_EXPIRED_CODE", "The code is invalid or has expired");
     await verifyCode(user._id, "password_reset", input.code);
     user.passwordHash = await bcrypt.hash(input.password, 12);
     user.passwordChangedAt = new Date();
     user.failedLoginAttempts = 0;
     user.lockedUntil = undefined;
-    if (user.status === "locked") user.status = user.emailVerified ? "active" : "pending_verification";
+    if (user.status === "locked")
+      user.status = user.emailVerified ? "active" : "pending_verification";
     await user.save();
-    await AuthSessionModel.updateMany({ userId: user._id, revokedAt: { $exists: false } }, { $set: { revokedAt: new Date() } });
+    await AuthSessionModel.updateMany(
+      { userId: user._id, revokedAt: { $exists: false } },
+      { $set: { revokedAt: new Date() } },
+    );
     return ok(res, { reset: true }, "Password updated");
   }),
 );
@@ -363,14 +472,20 @@ authRouter.post(
   "/change-password",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const input = z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema }).strict().parse(req.body);
+    const input = z
+      .object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema })
+      .strict()
+      .parse(req.body);
     const user = await UserModel.findById(req.auth!.user._id).select("+passwordHash");
     if (!user || !(await bcrypt.compare(input.currentPassword, user.passwordHash)))
       throw new ApiError(422, "CURRENT_PASSWORD_INCORRECT", "The current password is not correct");
     user.passwordHash = await bcrypt.hash(input.newPassword, 12);
     user.passwordChangedAt = new Date();
     await user.save();
-    await AuthSessionModel.updateMany({ userId: user._id, _id: { $ne: req.auth!.sessionId } }, { $set: { revokedAt: new Date() } });
+    await AuthSessionModel.updateMany(
+      { userId: user._id, _id: { $ne: req.auth!.sessionId } },
+      { $set: { revokedAt: new Date() } },
+    );
     return ok(res, { changed: true }, "Password changed");
   }),
 );
@@ -379,7 +494,15 @@ authRouter.patch(
   "/contact",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const input = z.object({ email: z.string().email().optional(), phone: z.string().min(7).max(30).optional(), mobile: z.string().min(7).max(30).optional() }).strict().refine((v) => Boolean(v.email || v.phone || v.mobile)).parse(req.body);
+    const input = z
+      .object({
+        email: z.string().email().optional(),
+        phone: z.string().min(7).max(30).optional(),
+        mobile: z.string().min(7).max(30).optional(),
+      })
+      .strict()
+      .refine((v) => Boolean(v.email || v.phone || v.mobile))
+      .parse(req.body);
     if (input.email) {
       const normalized = normalizeEmail(input.email);
       if (await UserModel.exists({ emailNormalized: normalized, _id: { $ne: req.auth!.user._id } }))
@@ -392,7 +515,10 @@ authRouter.patch(
     const phone = input.phone ?? input.mobile;
     if (phone) {
       const normalized = normalizePhone(phone);
-      if (normalized && (await UserModel.exists({ phoneNormalized: normalized, _id: { $ne: req.auth!.user._id } })))
+      if (
+        normalized &&
+        (await UserModel.exists({ phoneNormalized: normalized, _id: { $ne: req.auth!.user._id } }))
+      )
         throw new ApiError(409, "PHONE_EXISTS", "An account already uses that phone number");
       req.auth!.user.phone = phone;
       req.auth!.user.phoneNormalized = normalized;
@@ -400,5 +526,56 @@ authRouter.patch(
     }
     await req.auth!.user.save();
     return ok(res, serializeUser(req.auth!.user), "Contact details updated");
+  }),
+);
+
+authRouter.patch(
+  "/profile",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const input = z
+      .object({
+        fullName: z.string().trim().min(2).max(120).optional(),
+        city: z.string().trim().min(2).max(100).optional(),
+        province: z.string().trim().max(100).optional(),
+        country: z.string().trim().min(2).max(80).optional(),
+        avatarUrl: z.string().trim().max(1000).optional(),
+      })
+      .strict()
+      .refine((value) => Object.keys(value).length > 0, "At least one profile field is required")
+      .parse(req.body);
+    const before = serializeUser(req.auth!.user);
+    if (input.fullName) req.auth!.user.fullName = sanitizeText(input.fullName, 120);
+    if (input.city) req.auth!.user.city = sanitizeText(input.city, 100);
+    if (input.province !== undefined) req.auth!.user.province = sanitizeText(input.province, 100);
+    if (input.country) req.auth!.user.country = sanitizeText(input.country, 80);
+    if (input.avatarUrl !== undefined) req.auth!.user.avatarUrl = input.avatarUrl;
+    await req.auth!.user.save();
+    await audit(
+      req,
+      "user.profile_updated",
+      "User",
+      req.auth!.user._id,
+      before,
+      serializeUser(req.auth!.user),
+    );
+    return ok(res, serializeUser(req.auth!.user), "Profile updated");
+  }),
+);
+
+authRouter.post(
+  "/sessions/revoke-others",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const result = await AuthSessionModel.updateMany(
+      {
+        userId: req.auth!.user._id,
+        _id: { $ne: req.auth!.sessionId },
+        revokedAt: { $exists: false },
+      },
+      { $set: { revokedAt: new Date() } },
+    );
+    await audit(req, "auth.other_sessions_revoked", "AuthSession", req.auth!.sessionId);
+    return ok(res, { revoked: result.modifiedCount }, "Other sessions signed out");
   }),
 );

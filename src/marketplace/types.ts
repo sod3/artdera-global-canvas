@@ -278,6 +278,7 @@ export interface Subscription {
   listingLimit: number | null;
   featureIds: string[];
   cancelledAt?: string;
+  cancelAtPeriodEnd?: boolean;
   pendingPlanId?: PlanId;
   pendingChangeAt?: string;
 }
@@ -388,6 +389,7 @@ export interface Message {
   createdAt: string;
   read: boolean;
   attachmentName?: string;
+  attachments?: Array<{ url: string; name: string; mimeType: string; size: number }>;
 }
 export interface Conversation {
   id: string;
@@ -474,6 +476,7 @@ export interface Review {
   rating: number;
   title: string;
   body: string;
+  sellerResponse?: string;
   status: "Published" | "Pending" | "Reported";
   createdAt: string;
 }

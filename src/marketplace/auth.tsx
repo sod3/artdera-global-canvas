@@ -67,8 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         <div className="max-w-lg rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-8 text-center">
           <div className="eyebrow">Secure service unavailable</div>
           <h1 className="mt-3 font-display text-4xl">ArtDera is not ready yet.</h1>
-          <p className="mt-3 text-sm text-muted-foreground">{error} Check the API and MongoDB configuration, then reload.</p>
-          <button onClick={() => window.location.reload()} className="btn-primary mt-6">Try again</button>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {error} Check the API and MongoDB configuration, then reload.
+          </p>
+          <button onClick={() => window.location.reload()} className="btn-primary mt-6">
+            Try again
+          </button>
         </div>
       </div>
     );

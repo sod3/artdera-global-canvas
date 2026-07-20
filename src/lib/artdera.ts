@@ -11,7 +11,20 @@ import heroInterior from "@/assets/hero-interior.jpg";
 import heroStudio from "@/assets/hero-studio.jpg";
 import roomDining from "@/assets/room-dining.jpg";
 
-export const IMAGES = { art1, art2, art3, art4, art5, art6, creator1, creator2, creator3, heroInterior, heroStudio, roomDining };
+export const IMAGES = {
+  art1,
+  art2,
+  art3,
+  art4,
+  art5,
+  art6,
+  creator1,
+  creator2,
+  creator3,
+  heroInterior,
+  heroStudio,
+  roomDining,
+};
 
 export type Category = { slug: string; name: string; blurb: string; image: string };
 export type Creator = {
@@ -45,7 +58,13 @@ export type Product = {
   featured?: boolean;
   new?: boolean;
 };
-export type EditorialCollection = { slug: string; name: string; blurb: string; products: string[]; cover: string };
+export type EditorialCollection = {
+  slug: string;
+  name: string;
+  blurb: string;
+  products: string[];
+  cover: string;
+};
 
 export const CATEGORIES: Category[] = [];
 export const CREATORS: Creator[] = [];
@@ -94,5 +113,9 @@ export function productsByCategory(slug: string) {
   return PRODUCTS.filter((product) => product.categorySlug === slug);
 }
 export function formatPKR(value: number) {
-  return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }

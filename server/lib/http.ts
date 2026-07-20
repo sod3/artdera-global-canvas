@@ -53,18 +53,30 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
   if (error instanceof mongoose.Error.CastError) {
     return res.status(422).json({
       success: false,
-      error: { code: "INVALID_ID", message: "The requested identifier is not valid", fieldErrors: {} },
+      error: {
+        code: "INVALID_ID",
+        message: "The requested identifier is not valid",
+        fieldErrors: {},
+      },
     });
   }
   if (error instanceof mongoose.Error.ValidationError) {
     return res.status(422).json({
       success: false,
-      error: { code: "VALIDATION_ERROR", message: "The submitted data is not valid", fieldErrors: {} },
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "The submitted data is not valid",
+        fieldErrors: {},
+      },
     });
   }
   return res.status(500).json({
     success: false,
-    error: { code: "INTERNAL_ERROR", message: "The request could not be completed", fieldErrors: {} },
+    error: {
+      code: "INTERNAL_ERROR",
+      message: "The request could not be completed",
+      fieldErrors: {},
+    },
   });
 }
 

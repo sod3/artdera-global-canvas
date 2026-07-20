@@ -101,7 +101,8 @@ function Signup() {
               <h1 className="mt-3 font-display text-4xl">Enter the six-digit code.</h1>
               {DEMO_OTP && (
                 <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
-                  <Info className="h-4 w-4 shrink-0" /> Development verification code: <strong>{DEMO_OTP}</strong>
+                  <Info className="h-4 w-4 shrink-0" /> Development verification code:{" "}
+                  <strong>{DEMO_OTP}</strong>
                 </div>
               )}
               <input
@@ -132,7 +133,7 @@ function Signup() {
               <div className="eyebrow mt-10">Buyer account</div>
               <h1 className="mt-3 font-display text-5xl">Start collecting.</h1>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Save work, follow studios, manage offers and track demo orders.
+                Save work, follow studios, manage offers and track orders.
               </p>
               <form onSubmit={submit} className="mt-8 grid gap-5">
                 <label>

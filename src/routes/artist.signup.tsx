@@ -173,7 +173,7 @@ function ArtistSignup() {
             <ChevronLeft className="h-4 w-4" /> Change Plan
           </Link>
           <div className="text-xs text-muted-foreground">
-            Account → Verification → {planId === "free" ? "Store setup" : "Demo payment"}
+            Account → Verification → {planId === "free" ? "Store setup" : "Payment"}
           </div>
         </div>
         <div className="grid gap-8 lg:grid-cols-[0.72fr_1.28fr]">
@@ -221,14 +221,14 @@ function ArtistSignup() {
             </Link>
             <div className="mt-6 flex gap-2 border-t border-white/10 pt-5 text-xs leading-relaxed text-white/55">
               <ShieldCheck className="h-4 w-4 shrink-0 text-[var(--terracotta)]" />
-              Frontend demo. Private payment and identity details are never stored.
+              Private account and identity details are protected and never shown publicly.
             </div>
           </aside>
           <main className="rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5 sm:p-6 md:p-8">
             <div className="eyebrow">Create artist account</div>
             <h2 className="mt-3 font-display text-4xl">Begin your ArtDera store.</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              All fields are validated before your account moves to demo verification.
+              All fields are validated before your account moves to email verification.
             </p>
             <form onSubmit={submit} noValidate className="mt-8 grid gap-5">
               <div className="grid gap-5 sm:grid-cols-2">
@@ -401,14 +401,14 @@ function ArtistSignup() {
                 disabled={loading || (submitted && !valid)}
                 className="btn-primary min-h-12 w-full disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? "Creating secure demo account…" : "Create account and verify"}
+                {loading ? "Creating your secure account…" : "Create account and verify"}
               </button>
             </form>
             <div className="mt-5 flex gap-3 text-xs leading-relaxed text-muted-foreground">
               <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-[var(--indigo)]" />
               <p>
-                Your password is one-way hashed before demo storage. Production authentication and
-                access control must be enforced by the backend.
+                Your password is one-way hashed by the server. Secure sessions and role-based access
+                controls protect your account.
               </p>
             </div>
           </main>

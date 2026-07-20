@@ -1,4 +1,10 @@
-import { PLAN_RANK, hydrateSubscriptionPlans, isPlanId, planPrice, validBillingCycle } from "@/config/subscription-plans";
+import {
+  PLAN_RANK,
+  hydrateSubscriptionPlans,
+  isPlanId,
+  planPrice,
+  validBillingCycle,
+} from "@/config/subscription-plans";
 import {
   COLLECTIONS,
   CREATORS,
@@ -42,6 +48,7 @@ import type {
   Invoice,
   Message,
   Notification,
+  Order,
   Payment,
   PaymentMethod,
   PlanDowngrade,
@@ -59,10 +66,14 @@ import type {
 } from "./types";
 
 type ApiEnvelope<T> = { success: true; data: T; message?: string };
-type ApiFailure = { success: false; error: { code: string; message: string; fieldErrors?: Record<string, string[]> } };
+type ApiFailure = {
+  success: false;
+  error: { code: string; message: string; fieldErrors?: Record<string, string[]> };
+};
 
 export class HttpApiClient {
-  private readonly base = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+  private readonly base =
+    (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
   async request<T>(method: string, path: string, payload?: unknown): Promise<ServiceResult<T>> {
     try {
@@ -75,11 +86,21 @@ export class HttpApiClient {
       const body = (await response.json()) as ApiEnvelope<T> | ApiFailure;
       if (!response.ok || !body.success) {
         const error = body as ApiFailure;
-        return { error: { code: error.error?.code ?? "REQUEST_FAILED", message: error.error?.message ?? "The request could not be completed" } };
+        return {
+          error: {
+            code: error.error?.code ?? "REQUEST_FAILED",
+            message: error.error?.message ?? "The request could not be completed",
+          },
+        };
       }
       return { data: body.data };
     } catch {
-      return { error: { code: "API_UNAVAILABLE", message: "ArtDera could not reach the secure server. Please try again." } };
+      return {
+        error: {
+          code: "API_UNAVAILABLE",
+          message: "ArtDera could not reach the secure server. Please try again.",
+        },
+      };
     }
   }
 
@@ -108,11 +129,18 @@ export class HttpApiClient {
       const body = (await response.json()) as ApiEnvelope<T> | ApiFailure;
       if (!response.ok || !body.success) {
         const error = body as ApiFailure;
-        return { error: { code: error.error?.code ?? "UPLOAD_FAILED", message: error.error?.message ?? "The upload failed" } };
+        return {
+          error: {
+            code: error.error?.code ?? "UPLOAD_FAILED",
+            message: error.error?.message ?? "The upload failed",
+          },
+        };
       }
       return { data: body.data };
     } catch {
-      return { error: { code: "API_UNAVAILABLE", message: "ArtDera could not reach the upload service." } };
+      return {
+        error: { code: "API_UNAVAILABLE", message: "ArtDera could not reach the upload service." },
+      };
     }
   }
 }
@@ -135,11 +163,17 @@ let bootstrapPromise: Promise<void> | undefined;
 let onboardingSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function sanitizeText(value: string, maxLength = 1200) {
-  return value.replace(/[<>\u0000-\u001F]/g, "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  return value
+    .replace(/[<>\u0000-\u001F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
 }
 
 export function containsProtectedContact(value: string) {
-  return /(https?:\/\/|wa\.me|whatsapp|[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?92|0)?3\d{9})/i.test(value);
+  return /(https?:\/\/|wa\.me|whatsapp|[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?92|0)?3\d{9})/i.test(
+    value,
+  );
 }
 
 const statusToOrderLabel: Record<string, string> = {
@@ -184,16 +218,20 @@ function mapOrder(value: Record<string, any>) {
     deliveryCity: value.deliveryCity ?? value.shippingAddress?.city ?? "",
     createdAt: value.createdAt,
     trackingNumber: value.trackingNumber,
-  } as const;
+  } as Order;
 }
 
 function mapPromotion(value: Record<string, any>): Promotion {
-  const label = String(value.status ?? "Draft").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const label = String(value.status ?? "Draft")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
   return {
     id: String(value.id ?? value._id),
     artworkId: String(value.artworkId ?? ""),
     placementId: String(value.placementId ?? value.promotionType ?? "").replaceAll("_", "-"),
-    status: (label === "Pending Approval" || label === "Pending Payment" ? "Pending" : label) as Promotion["status"],
+    status: (label === "Pending Approval" || label === "Pending Payment"
+      ? "Pending"
+      : label) as Promotion["status"],
     startDate: value.startDate ?? value.startAt,
     endDate: value.endDate ?? value.endAt,
     price: value.price ?? 0,
@@ -206,13 +244,21 @@ function mapPromotion(value: Record<string, any>): Promotion {
 }
 
 function mapPayment(value: Record<string, any>): Payment {
-  const status = value.status === "successful" ? "Succeeded" : value.status === "failed" ? "Failed" : value.status === "processing" ? "Processing" : value.status ?? "Pending Review";
+  const status =
+    value.status === "successful"
+      ? "Succeeded"
+      : value.status === "failed"
+        ? "Failed"
+        : value.status === "processing"
+          ? "Processing"
+          : (value.status ?? "Pending Review");
   return {
     id: String(value.id ?? value._id),
     userId: String(value.userId),
     invoiceId: value.invoiceId ? String(value.invoiceId) : undefined,
     planId: value.planId ?? value.metadata?.targetPlanId ?? activeSelection?.planId ?? "free",
-    billingCycle: value.billingCycle ?? value.metadata?.billingCycle ?? activeSelection?.billingCycle ?? "free",
+    billingCycle:
+      value.billingCycle ?? value.metadata?.billingCycle ?? activeSelection?.billingCycle ?? "free",
     method: value.method ?? value.metadata?.method ?? "card",
     amount: value.amount ?? 0,
     status,
@@ -223,7 +269,10 @@ function mapPayment(value: Record<string, any>): Payment {
 }
 
 function mergeById<T extends { id: string }>(publicItems: T[], privateItems: T[] = []) {
-  return [...privateItems, ...publicItems.filter((item) => !privateItems.some((own) => own.id === item.id))];
+  return [
+    ...privateItems,
+    ...publicItems.filter((item) => !privateItems.some((own) => own.id === item.id)),
+  ];
 }
 
 function hydratePublicCatalog(data: Record<string, any>) {
@@ -244,7 +293,11 @@ function hydratePublicCatalog(data: Record<string, any>) {
     verified: Boolean(creator.verified),
     portrait: creator.portrait || IMAGES.creator1,
     works: artworks
-      .filter((artwork) => artwork.artistId === creator.id || stores.find((store) => store.id === artwork.storeId)?.ownerId === creator.id)
+      .filter(
+        (artwork) =>
+          artwork.artistId === creator.id ||
+          stores.find((store) => store.id === artwork.storeId)?.ownerId === creator.id,
+      )
       .map((artwork) => artwork.slug),
   }));
   const products: Product[] = artworks.map((artwork) => {
@@ -257,7 +310,12 @@ function hydratePublicCatalog(data: Record<string, any>) {
       categorySlug: slugify(artwork.category),
       price: artwork.discountPrice ?? artwork.price,
       currency: "PKR",
-      kind: artwork.kind === "Limited Edition" ? "Limited Edition" : artwork.kind === "Print" ? "Open Edition" : "Original",
+      kind:
+        artwork.kind === "Limited Edition"
+          ? "Limited Edition"
+          : artwork.kind === "Print"
+            ? "Open Edition"
+            : "Original",
       medium: artwork.medium,
       dimensions: artwork.dimensions,
       year: artwork.year,
@@ -270,20 +328,37 @@ function hydratePublicCatalog(data: Record<string, any>) {
       new: true,
     };
   });
-  const categoryTaxonomy = (data.taxonomy ?? []).filter((item: Record<string, any>) => item.type === "category");
-  const categories: EditorialCategory[] = categoryTaxonomy.map((category: Record<string, any>, index: number) => ({
-    slug: category.slug,
-    name: category.name,
-    blurb: `Browse ${category.name.toLowerCase()} available from ArtDera sellers.`,
-    image: products.find((product) => product.categorySlug === category.slug)?.images[0] ?? Object.values(IMAGES)[index % 6],
-  }));
-  const collections: EditorialCollection[] = (data.collections ?? []).map((collection: Record<string, any>) => ({
-    slug: collection.slug,
-    name: collection.name,
-    blurb: collection.description ?? "",
-    products: (collection.artworkIds ?? []).map((id: string) => artworks.find((artwork) => artwork.id === id)?.slug).filter(Boolean),
-    cover: collection.coverImage || products.find((product) => collection.artworkIds?.includes(artworks.find((artwork) => artwork.slug === product.slug)?.id))?.images[0] || IMAGES.art1,
-  }));
+  const categoryTaxonomy = (data.taxonomy ?? []).filter(
+    (item: Record<string, any>) => item.type === "category",
+  );
+  const categories: EditorialCategory[] = categoryTaxonomy.map(
+    (category: Record<string, any>, index: number) => ({
+      slug: category.slug,
+      name: category.name,
+      blurb: `Browse ${category.name.toLowerCase()} available from ArtDera sellers.`,
+      image:
+        products.find((product) => product.categorySlug === category.slug)?.images[0] ??
+        Object.values(IMAGES)[index % 6],
+    }),
+  );
+  const collections: EditorialCollection[] = (data.collections ?? []).map(
+    (collection: Record<string, any>) => ({
+      slug: collection.slug,
+      name: collection.name,
+      blurb: collection.description ?? "",
+      products: (collection.artworkIds ?? [])
+        .map((id: string) => artworks.find((artwork) => artwork.id === id)?.slug)
+        .filter(Boolean),
+      cover:
+        collection.coverImage ||
+        products.find((product) =>
+          collection.artworkIds?.includes(
+            artworks.find((artwork) => artwork.slug === product.slug)?.id,
+          ),
+        )?.images[0] ||
+        IMAGES.art1,
+    }),
+  );
   hydrateEditorialData({ categories, creators, products, collections });
   hydrateMarketplaceData({ stores, artworks, exhibitions: data.exhibitions ?? [] });
 }
@@ -304,7 +379,12 @@ function hydratePrivate(data?: Record<string, any> | null) {
     tax: value.tax ?? 0,
     discount: value.discount ?? 0,
     total: value.total ?? 0,
-    status: value.status === "paid" ? "Paid" : value.status === "void" ? "Voided" : value.status ?? "Pending",
+    status:
+      value.status === "paid"
+        ? "Paid"
+        : value.status === "void"
+          ? "Voided"
+          : (value.status ?? "Pending"),
     issuedAt: value.issuedAt,
   }));
   hydrateMarketplaceData({
@@ -330,7 +410,11 @@ function hydratePrivate(data?: Record<string, any> | null) {
 
 export class MarketplaceService {
   static async initialize() {
-    const session = await apiClient.get<{ user: User | null; subscription: Subscription | null; destination?: string }>("/api/auth/session");
+    const session = await apiClient.get<{
+      user: User | null;
+      subscription: Subscription | null;
+      destination?: string;
+    }>("/api/auth/session");
     if (session.data) {
       activeUser = session.data.user;
       activeSubscription = session.data.subscription ?? undefined;
@@ -374,11 +458,17 @@ export class MarketplaceService {
         }
       }
       if (activeUser && ["artist", "gallery", "gallery_staff"].includes(activeUser.role)) {
-        const draft = await apiClient.get<{ step: number; data: Record<string, unknown>; completedAt?: string }>("/api/stores/onboarding/draft/current");
+        const draft = await apiClient.get<{
+          step: number;
+          data: Record<string, unknown>;
+          completedAt?: string;
+        }>("/api/stores/onboarding/draft/current");
         if (draft.data) {
           onboardingStep = draft.data.step;
           onboardingDraft = draft.data.data ?? {};
-          onboardingCompleted = Boolean(draft.data.completedAt || STORES.some((store) => store.ownerId === activeUser?.id));
+          onboardingCompleted = Boolean(
+            draft.data.completedAt || STORES.some((store) => store.ownerId === activeUser?.id),
+          );
         }
         const artDraft = await apiClient.get<unknown>("/api/drafts/artwork-form");
         artworkFormDraft = artDraft.data ?? undefined;
@@ -395,7 +485,10 @@ export class UserService {
     return SEEDED_USERS;
   }
   static getById(id: string) {
-    return SEEDED_USERS.find((user) => user.id === id) ?? (activeUser?.id === id ? activeUser : undefined);
+    return (
+      SEEDED_USERS.find((user) => user.id === id) ??
+      (activeUser?.id === id ? activeUser : undefined)
+    );
   }
   static async create(input: Record<string, any> & { password: string }) {
     const payload = {
@@ -416,15 +509,33 @@ export class UserService {
     const result = await apiClient.post<User>("/api/auth/register", payload);
     if (result.data) {
       activeUser = result.data;
-      if (!SEEDED_USERS.some((user) => user.id === result.data!.id)) SEEDED_USERS.unshift(result.data);
+      if (!SEEDED_USERS.some((user) => user.id === result.data!.id))
+        SEEDED_USERS.unshift(result.data);
       await MarketplaceService.bootstrap(true);
     }
     return result;
   }
   static async updateContact(_userId: string, input: { email?: string; mobile?: string }) {
-    const result = await apiClient.patch<User>("/api/auth/contact", { email: input.email, mobile: input.mobile });
+    const result = await apiClient.patch<User>("/api/auth/contact", {
+      email: input.email,
+      mobile: input.mobile,
+    });
     if (result.data) activeUser = result.data;
     return result.data;
+  }
+  static async updateProfile(input: {
+    fullName?: string;
+    city?: string;
+    province?: string;
+    country?: string;
+    avatarUrl?: string;
+  }) {
+    const result = await apiClient.patch<User>("/api/auth/profile", input);
+    if (result.data) activeUser = result.data;
+    return result;
+  }
+  static revokeOtherSessions() {
+    return apiClient.post<{ revoked: number }>("/api/auth/sessions/revoke-others", {});
   }
   static async updateRole(_userId: string, _role: "artist" | "gallery") {
     return activeUser ?? undefined;
@@ -432,8 +543,14 @@ export class UserService {
 }
 
 export class AuthService {
-  static async login(email: string, password: string): Promise<ServiceResult<{ user: User; destination: string }>> {
-    const result = await apiClient.post<{ user: User; destination: string }>("/api/auth/login", { email, password });
+  static async login(
+    email: string,
+    password: string,
+  ): Promise<ServiceResult<{ user: User; destination: string }>> {
+    const result = await apiClient.post<{ user: User; destination: string }>("/api/auth/login", {
+      email,
+      password,
+    });
     if (result.data) {
       activeUser = result.data.user;
       activeDestination = result.data.destination;
@@ -448,7 +565,9 @@ export class AuthService {
     return MarketplaceService.initialize();
   }
   static getSession() {
-    return activeUser ? { userId: activeUser.id, role: activeUser.role, email: activeUser.email, expiresAt: 0 } : null;
+    return activeUser
+      ? { userId: activeUser.id, role: activeUser.role, email: activeUser.email, expiresAt: 0 }
+      : null;
   }
   static async logout() {
     await apiClient.post("/api/auth/logout");
@@ -460,7 +579,11 @@ export class AuthService {
     return apiClient.post<{ accepted: boolean }>("/api/auth/forgot-password", { email });
   }
   static async resetPassword(email: string, code: string, password: string) {
-    return apiClient.post<{ reset: boolean }>("/api/auth/reset-password", { email, code, password });
+    return apiClient.post<{ reset: boolean }>("/api/auth/reset-password", {
+      email,
+      code,
+      password,
+    });
   }
   static destination() {
     return activeDestination;
@@ -481,7 +604,9 @@ export class StoreService {
     return STORES.find((store) => store.slug === slug);
   }
   static async fetchBySlug(slug: string) {
-    const result = await apiClient.get<{ store: Store; artworks: Artwork[] }>(`/api/stores/${encodeURIComponent(slug)}`);
+    const result = await apiClient.get<{ store: Store; artworks: Artwork[] }>(
+      `/api/stores/${encodeURIComponent(slug)}`,
+    );
     if (result.data) {
       const storeIndex = STORES.findIndex((item) => item.id === result.data!.store.id);
       if (storeIndex >= 0) STORES[storeIndex] = result.data.store;
@@ -521,6 +646,45 @@ export class StoreService {
       else STORES.unshift(result.data);
     }
     return result;
+  }
+}
+
+export class GalleryService {
+  static profile() {
+    return apiClient.get<Record<string, any>>("/api/gallery/profile");
+  }
+  static updateProfile(input: Record<string, unknown>) {
+    return apiClient.patch<Record<string, any>>("/api/gallery/profile", input);
+  }
+  static staff() {
+    return apiClient.get<Array<Record<string, any>>>("/api/gallery/staff");
+  }
+  static inviteStaff(input: { email: string; role: string; permissions: string[] }) {
+    return apiClient.post<Record<string, any>>("/api/gallery/staff/invite", input);
+  }
+  static updateStaff(
+    id: string,
+    input: { role?: string; permissions?: string[]; status?: "active" | "suspended" | "revoked" },
+  ) {
+    return apiClient.patch<Record<string, any>>(`/api/gallery/staff/${id}`, input);
+  }
+  static artists() {
+    return apiClient.get<Array<Record<string, any>>>("/api/gallery/artists");
+  }
+  static inviteArtist(email: string) {
+    return apiClient.post<Record<string, any>>("/api/gallery/artists", { email });
+  }
+  static exhibitions() {
+    return apiClient.get<Array<Record<string, any>>>("/api/gallery/exhibitions");
+  }
+  static createExhibition(input: Record<string, unknown>) {
+    return apiClient.post<Record<string, any>>("/api/gallery/exhibitions", input);
+  }
+  static updateExhibition(id: string, input: Record<string, unknown>) {
+    return apiClient.patch<Record<string, any>>(`/api/gallery/exhibitions/${id}`, input);
+  }
+  static customers() {
+    return apiClient.get<Array<Record<string, any>>>("/api/gallery/customers");
   }
 }
 
@@ -578,12 +742,16 @@ export class ArtworkService {
         if (index >= 0) ARTWORKS[index] = artwork;
       }
     }
-    return result.data ?? ARTWORKS;
+    return result;
   }
   static async deleteMany(ids: string[]) {
-    const result = await apiClient.patch<{ ids: string[] }>("/api/artworks/bulk", { ids, action: "delete" });
-    if (result.data) ARTWORKS.splice(0, ARTWORKS.length, ...ARTWORKS.filter((item) => !ids.includes(item.id)));
-    return ARTWORKS;
+    const result = await apiClient.patch<{ ids: string[] }>("/api/artworks/bulk", {
+      ids,
+      action: "delete",
+    });
+    if (result.data)
+      ARTWORKS.splice(0, ARTWORKS.length, ...ARTWORKS.filter((item) => !ids.includes(item.id)));
+    return result;
   }
 }
 
@@ -603,12 +771,22 @@ export class ArtworkDraftService {
 }
 
 export class UploadService {
-  static async upload(file: File, purpose: "artwork" | "profile" | "cover" | "message" | "verification") {
+  static async upload(
+    file: File,
+    purpose: "artwork" | "profile" | "cover" | "message" | "verification",
+  ) {
     const form = new FormData();
     form.set("file", file);
     form.set("purpose", purpose);
     form.set("access", purpose === "verification" ? "private" : "public");
-    return apiClient.upload<{ id: string; publicId: string; url: string; mimeType: string; size: number; access: "public" | "private" }>("/api/uploads", form);
+    return apiClient.upload<{
+      id: string;
+      publicId: string;
+      url: string;
+      mimeType: string;
+      size: number;
+      access: "public" | "private";
+    }>("/api/uploads", form);
   }
 }
 
@@ -624,7 +802,10 @@ export class CartService {
     return apiClient.get<{ items: CartEntry[]; subtotal: number }>("/api/cart");
   }
   static add(artworkId: string, quantity = 1) {
-    return apiClient.post<{ artworkId: string; quantity: number }>("/api/cart/items", { artworkId, quantity });
+    return apiClient.post<{ artworkId: string; quantity: number }>("/api/cart/items", {
+      artworkId,
+      quantity,
+    });
   }
   static remove(artworkId: string) {
     return apiClient.delete<{ artworkId: string }>(`/api/cart/items/${artworkId}`);
@@ -677,17 +858,26 @@ export type CheckoutResult = {
 };
 
 export class CheckoutService {
-  static create(input: { shippingAddress: CheckoutAddress; billingAddress?: CheckoutAddress; method: PaymentMethod }) {
+  static create(input: {
+    shippingAddress: CheckoutAddress;
+    billingAddress?: CheckoutAddress;
+    method: PaymentMethod;
+  }) {
     return apiClient.post<CheckoutResult>("/api/checkout", input);
   }
   static confirmDemo(paymentId: string, outcome: "success" | "failure" = "success") {
-    return apiClient.post<{ payment: Record<string, unknown>; order: Record<string, any> }>(`/api/order-payments/${paymentId}/confirm-demo`, { outcome });
+    return apiClient.post<{ payment: Record<string, unknown>; order: Record<string, any> }>(
+      `/api/order-payments/${paymentId}/confirm-demo`,
+      { outcome },
+    );
   }
 }
 
 export class OrderService {
   static listFor(userId: string, role: UserRole) {
-    return ORDERS.filter((order) => (role === "buyer" ? order.buyerId === userId : order.sellerId === userId));
+    return ORDERS.filter((order) =>
+      role === "buyer" ? order.buyerId === userId : order.sellerId === userId,
+    );
   }
   static async refresh() {
     const result = await apiClient.get<Array<Record<string, any>>>("/api/orders");
@@ -696,7 +886,9 @@ export class OrderService {
   }
   static async updateStatus(id: string, status: string) {
     const apiStatus = status.toLowerCase().replaceAll(" ", "_");
-    const result = await apiClient.patch<Record<string, any>>(`/api/orders/${id}/status`, { status: apiStatus });
+    const result = await apiClient.patch<Record<string, any>>(`/api/orders/${id}/status`, {
+      status: apiStatus,
+    });
     if (result.data) {
       const mapped = mapOrder(result.data);
       const index = ORDERS.findIndex((item) => item.id === id);
@@ -707,7 +899,28 @@ export class OrderService {
   static shipping(orderId: string) {
     return apiClient.get<Record<string, any> | null>(`/api/shipping/${orderId}`);
   }
-  static updateShipping(orderId: string, input: { courier?: string; trackingNumber?: string; status?: string; actualCost?: number }) {
+  static estimateShipping(input: {
+    city: string;
+    province?: string;
+    weightKg: number;
+    fragile: boolean;
+    framed: boolean;
+    packagingType: "art_box" | "wooden_crate" | "tube";
+  }) {
+    return apiClient.post<{
+      currency: "PKR";
+      courierCost: number;
+      packagingCost: number;
+      total: number;
+      ruleName: string;
+      isCourierQuote: false;
+      notice: string;
+    }>("/api/shipping/estimate", input);
+  }
+  static updateShipping(
+    orderId: string,
+    input: { courier?: string; trackingNumber?: string; status?: string; actualCost?: number },
+  ) {
     return apiClient.patch<Record<string, any>>(`/api/shipping/${orderId}`, input);
   }
 }
@@ -737,11 +950,22 @@ export class SupportService {
   static list() {
     return apiClient.get<Record<string, unknown>[]>("/api/support");
   }
-  static create(input: { category: string; subject: string; description: string; priority?: "low" | "normal" | "high" }) {
+  static create(input: {
+    category: string;
+    subject: string;
+    description: string;
+    priority?: "low" | "normal" | "high";
+  }) {
     return apiClient.post<Record<string, unknown>>("/api/support", input);
   }
   static reply(id: string, message: string) {
     return apiClient.post<Record<string, unknown>>(`/api/support/${id}/messages`, { message });
+  }
+}
+
+export class NewsletterService {
+  static subscribe(email: string, source = "website") {
+    return apiClient.post<{ subscribed: boolean }>("/api/newsletter", { email, source });
   }
 }
 
@@ -751,11 +975,37 @@ export class CustomerService {
   }
 }
 
+export class AnalyticsService {
+  static get(range: "today" | "7d" | "30d" | "3m" | "1y" = "30d") {
+    return apiClient.get<{
+      range: string;
+      from: string;
+      metrics: Record<string, number>;
+      series: Array<{ _id: { date: string; type: string }; count: number; value: number }>;
+    }>(`/api/analytics?range=${range}`);
+  }
+}
+
 export class ReviewService {
   static publicForStore(storeId: string) {
-    return apiClient.get<Array<{ id: string; rating: number; title: string; body: string; sellerResponse?: string; createdAt: string }>>(`/api/reviews/public/${storeId}`);
+    return apiClient.get<
+      Array<{
+        id: string;
+        rating: number;
+        title: string;
+        body: string;
+        sellerResponse?: string;
+        createdAt: string;
+      }>
+    >(`/api/reviews/public/${storeId}`);
   }
-  static create(input: { orderId: string; artworkId: string; rating: number; title: string; comment: string }) {
+  static create(input: {
+    orderId: string;
+    artworkId: string;
+    rating: number;
+    title: string;
+    comment: string;
+  }) {
     return apiClient.post<Record<string, unknown>>("/api/reviews", input);
   }
   static respond(id: string, response: string) {
@@ -776,41 +1026,100 @@ export class MessageService {
     return result;
   }
   static async getConversation(id: string) {
-    const result = await apiClient.get<{ conversation: Conversation; messages: Message[]; offers: Record<string, unknown>[]; consultations: Record<string, unknown>[] }>(`/api/messages/conversations/${id}`);
+    const result = await apiClient.get<{
+      conversation: Conversation;
+      messages: Message[];
+      offers: Record<string, unknown>[];
+      consultations: Record<string, unknown>[];
+    }>(`/api/messages/conversations/${id}`);
     if (result.data) {
       const conversationIndex = CONVERSATIONS.findIndex((item) => item.id === id);
       if (conversationIndex >= 0) CONVERSATIONS[conversationIndex] = result.data.conversation;
       else CONVERSATIONS.unshift(result.data.conversation);
-      MESSAGES.splice(0, MESSAGES.length, ...MESSAGES.filter((item) => item.conversationId !== id), ...result.data.messages);
+      MESSAGES.splice(
+        0,
+        MESSAGES.length,
+        ...MESSAGES.filter((item) => item.conversationId !== id),
+        ...result.data.messages,
+      );
     }
     return result;
   }
   static async createConversation(storeId: string, artworkId?: string, message?: string) {
-    const result = await apiClient.post<Conversation>("/api/messages/conversations", { storeId, artworkId, message });
-    if (result.data && !CONVERSATIONS.some((item) => item.id === result.data!.id)) CONVERSATIONS.unshift(result.data);
+    const result = await apiClient.post<Conversation>("/api/messages/conversations", {
+      storeId,
+      artworkId,
+      message,
+    });
+    if (result.data && !CONVERSATIONS.some((item) => item.id === result.data!.id))
+      CONVERSATIONS.unshift(result.data);
     return result;
   }
-  static async send(conversationId: string, text: string) {
-    const result = await apiClient.post<Message>(`/api/messages/conversations/${conversationId}/messages`, { text, type: "text", attachments: [] });
+  static async send(
+    conversationId: string,
+    text: string,
+    attachment?: { url: string; name: string; mimeType: string; size: number },
+  ) {
+    const result = await apiClient.post<Message>(
+      `/api/messages/conversations/${conversationId}/messages`,
+      {
+        text,
+        type: attachment?.mimeType.startsWith("image/")
+          ? "image"
+          : attachment
+            ? "document"
+            : "text",
+        attachments: attachment ? [attachment] : [],
+      },
+    );
     if (result.data) MESSAGES.push(result.data);
     return result;
   }
   static markRead(conversationId: string) {
     return apiClient.post<{ read: boolean }>(`/api/messages/conversations/${conversationId}/read`);
   }
-  static changeStatus(conversationId: string, action: "archive" | "unarchive" | "block" | "unblock" | "report") {
-    return apiClient.patch<Conversation>(`/api/messages/conversations/${conversationId}/status`, { action });
+  static changeStatus(
+    conversationId: string,
+    action: "archive" | "unarchive" | "block" | "unblock" | "report",
+  ) {
+    return apiClient.patch<Conversation>(`/api/messages/conversations/${conversationId}/status`, {
+      action,
+    });
   }
   static createOffer(conversationId: string, offeredPrice: number, message?: string) {
-    return apiClient.post<Record<string, unknown>>("/api/messages/offers", { conversationId, offeredPrice, message, expiresInHours: 48 });
+    return apiClient.post<Record<string, unknown>>("/api/messages/offers", {
+      conversationId,
+      offeredPrice,
+      message,
+      expiresInHours: 48,
+    });
   }
-  static updateOffer(id: string, action: "accept" | "reject" | "counter" | "withdraw", counterPrice?: number) {
-    return apiClient.patch<Record<string, unknown>>(`/api/messages/offers/${id}`, { action, counterPrice });
+  static updateOffer(
+    id: string,
+    action: "accept" | "reject" | "counter" | "withdraw",
+    counterPrice?: number,
+  ) {
+    return apiClient.patch<Record<string, unknown>>(`/api/messages/offers/${id}`, {
+      action,
+      counterPrice,
+    });
   }
-  static requestConsultation(input: { conversationId: string; requestedDate: string; requestedTime: string; timezone: string; message?: string }) {
+  static requestConsultation(input: {
+    conversationId: string;
+    requestedDate: string;
+    requestedTime: string;
+    timezone: string;
+    message?: string;
+  }) {
     return apiClient.post<Record<string, unknown>>("/api/messages/consultations", input);
   }
-  static updateConsultation(id: string, input: { action: "accept" | "reject" | "suggest_alternate" | "cancel" | "complete"; meetingUrl?: string }) {
+  static updateConsultation(
+    id: string,
+    input: {
+      action: "accept" | "reject" | "suggest_alternate" | "cancel" | "complete";
+      meetingUrl?: string;
+    },
+  ) {
     return apiClient.patch<Record<string, unknown>>(`/api/messages/consultations/${id}`, input);
   }
 }
@@ -819,17 +1128,28 @@ export class PromotionService {
   static list() {
     return PROMOTIONS;
   }
-  static async create(input: Omit<Promotion, "id">) {
-    const result = await apiClient.post<{ promotion: Record<string, any>; payment: { id: string } }>("/api/promotions", {
+  static async create(input: Omit<Promotion, "id">): Promise<ServiceResult<Promotion>> {
+    const result = await apiClient.post<{
+      promotion: Record<string, any>;
+      payment: { id: string };
+    }>("/api/promotions", {
       artworkId: input.artworkId,
       promotionType: input.placementId.replaceAll("-", "_"),
       requestedPrice: input.price,
       placement: input.placementId,
       startAt: input.startDate,
     });
-    if (result.error) return result;
-    const confirmation = await apiClient.post<Record<string, any>>(`/api/promotions/${result.data!.promotion.id}/confirm-demo`, { outcome: "success" });
-    if (confirmation.error) return confirmation;
+    if (result.error) return { error: result.error };
+    if (!DEMO_PAYMENT_MODE) {
+      const promotion = mapPromotion(result.data!.promotion);
+      PROMOTIONS.unshift(promotion);
+      return { data: promotion } satisfies ServiceResult<Promotion>;
+    }
+    const confirmation = await apiClient.post<Record<string, any>>(
+      `/api/promotions/${result.data!.promotion.id}/confirm-demo`,
+      { outcome: "success" },
+    );
+    if (confirmation.error) return { error: confirmation.error };
     const promotion = mapPromotion(confirmation.data!);
     PROMOTIONS.unshift(promotion);
     return { data: promotion } satisfies ServiceResult<Promotion>;
@@ -842,7 +1162,13 @@ export class AdminService {
   }
   static resource(resource: string, page = 1, query = "") {
     const search = query ? `&q=${encodeURIComponent(query)}` : "";
-    return apiClient.get<{ items: Array<Record<string, any>>; page: number; limit: number; total: number; pages: number }>(`/api/admin/resources/${encodeURIComponent(resource)}?page=${page}&limit=50${search}`);
+    return apiClient.get<{
+      items: Array<Record<string, any>>;
+      page: number;
+      limit: number;
+      total: number;
+      pages: number;
+    }>(`/api/admin/resources/${encodeURIComponent(resource)}?page=${page}&limit=50${search}`);
   }
   static userStatus(id: string, status: "active" | "suspended" | "locked" | "deleted") {
     return apiClient.patch<User>(`/api/admin/users/${id}/status`, { status });
@@ -850,14 +1176,41 @@ export class AdminService {
   static moderateArtwork(id: string, decision: "approve" | "reject", reason?: string) {
     return apiClient.patch<Artwork>(`/api/admin/artworks/${id}/moderation`, { decision, reason });
   }
-  static verification(id: string, decision: "approve" | "reject" | "request_changes" | "remove", reason?: string) {
-    return apiClient.patch<Record<string, unknown>>(`/api/admin/verification/${id}`, { decision, reason });
+  static verification(
+    id: string,
+    decision: "approve" | "reject" | "request_changes" | "remove",
+    reason?: string,
+  ) {
+    return apiClient.patch<Record<string, unknown>>(`/api/admin/verification/${id}`, {
+      decision,
+      reason,
+    });
   }
   static promotion(id: string, decision: "approve" | "reject" | "cancel", reason?: string) {
-    return apiClient.patch<Record<string, unknown>>(`/api/admin/promotions/${id}`, { decision, reason });
+    return apiClient.patch<Record<string, unknown>>(`/api/admin/promotions/${id}`, {
+      decision,
+      reason,
+    });
   }
-  static plan(planId: PlanId, input: { monthlyPrice?: number; annualPrice?: number | null; listingLimit?: number | null; commissionRate?: number; features?: string[]; permissions?: string[]; isActive?: boolean }) {
+  static plan(
+    planId: PlanId,
+    input: {
+      monthlyPrice?: number;
+      annualPrice?: number | null;
+      listingLimit?: number | null;
+      commissionRate?: number;
+      features?: string[];
+      permissions?: string[];
+      isActive?: boolean;
+    },
+  ) {
     return apiClient.patch<SubscriptionPlan>(`/api/plans/${planId}`, input);
+  }
+  static setting(key: string, value: unknown, isPublic = false) {
+    return apiClient.patch<Record<string, unknown>>(
+      `/api/admin/settings/${encodeURIComponent(key)}`,
+      { value, isPublic },
+    );
   }
 }
 
@@ -885,7 +1238,9 @@ function emptyFlow(): ArtistFlowState {
     preferredBilling: preferredBillingCycle,
     userId: activeUser?.id,
     signupComplete: Boolean(activeUser),
-    verificationComplete: Boolean((activeUser as User & { emailVerified?: boolean } | null)?.emailVerified),
+    verificationComplete: Boolean(
+      (activeUser as (User & { emailVerified?: boolean }) | null)?.emailVerified,
+    ),
     paymentComplete: activeSubscription?.status === "Active",
     paymentStatus: activeSubscription?.status === "Active" ? "Succeeded" : undefined,
     onboardingStep,
@@ -901,14 +1256,19 @@ export class SubscriptionService {
   }
   static saveFlow(patch: Partial<ArtistFlowState>) {
     if (patch.selection) activeSelection = patch.selection;
-    if (patch.preferredBilling === "monthly" || patch.preferredBilling === "annual") preferredBillingCycle = patch.preferredBilling;
+    if (patch.preferredBilling === "monthly" || patch.preferredBilling === "annual")
+      preferredBillingCycle = patch.preferredBilling;
     if (typeof patch.onboardingStep === "number") onboardingStep = patch.onboardingStep;
-    if (typeof patch.onboardingComplete === "boolean") onboardingCompleted = patch.onboardingComplete;
+    if (typeof patch.onboardingComplete === "boolean")
+      onboardingCompleted = patch.onboardingComplete;
     return { ...emptyFlow(), ...patch };
   }
   static async selectPlan(planId: PlanId, requestedCycle?: BillingCycle) {
     const billingCycle = validBillingCycle(planId, requestedCycle);
-    const result = await apiClient.post<PlanSelection>("/api/plans/select", { planId, billingCycle });
+    const result = await apiClient.post<PlanSelection>("/api/plans/select", {
+      planId,
+      billingCycle,
+    });
     if (result.data) {
       activeSelection = result.data;
       preferredBillingCycle = result.data.billingCycle === "annual" ? "annual" : "monthly";
@@ -950,7 +1310,8 @@ export class SubscriptionService {
     if (!["artist", "gallery", "gallery_staff"].includes(user.role)) return ROLE_HOME[user.role];
     if (!(user as User & { emailVerified?: boolean }).emailVerified) return "/artist/verify";
     if (!activeSubscription) return "/sell/plans";
-    if (activeSubscription.planId !== "free" && activeSubscription.status !== "Active") return "/artist/checkout";
+    if (activeSubscription.planId !== "free" && activeSubscription.status !== "Active")
+      return "/artist/checkout";
     return onboardingCompleted ? "/artist/dashboard" : "/artist/onboarding";
   }
   static list() {
@@ -965,18 +1326,29 @@ export class SubscriptionService {
   }
   static async updateStatus(_userId: string, status: Subscription["status"]) {
     if (status !== "Cancelled") return activeSubscription;
-    const result = await apiClient.post<Subscription>("/api/subscriptions/cancel", { immediately: false });
+    const result = await apiClient.post<Subscription>("/api/subscriptions/cancel", {
+      immediately: false,
+    });
     if (result.data) activeSubscription = result.data;
     return result.data;
   }
-  static async scheduleDowngrade(userId: string, toPlanId: PlanId, effective: PlanDowngrade["effective"]) {
+  static async scheduleDowngrade(
+    userId: string,
+    toPlanId: PlanId,
+    effective: PlanDowngrade["effective"],
+  ) {
     const current = this.getForUser(userId);
     if (!current) return undefined;
-    const result = await apiClient.post<{ subscription?: Subscription; archivedArtworkIds?: string[] } | Subscription>("/api/subscriptions/change", {
+    const result = await apiClient.post<
+      { subscription?: Subscription; archivedArtworkIds?: string[] } | Subscription
+    >("/api/subscriptions/change", {
       planId: toPlanId,
       billingCycle: toPlanId === "free" ? "free" : "monthly",
       effective,
-      keepArtworkIds: ArtworkService.list().filter((artwork) => ["Published", "Pending Review", "Reserved"].includes(artwork.status)).slice(0, PLANS[toPlanId].listingLimit ?? 200).map((artwork) => artwork.id),
+      keepArtworkIds: ArtworkService.list()
+        .filter((artwork) => ["Published", "Pending Review", "Reserved"].includes(artwork.status))
+        .slice(0, PLANS[toPlanId].listingLimit ?? 200)
+        .map((artwork) => artwork.id),
     });
     if (result.error) return undefined;
     const value = result.data as { subscription?: Subscription; archivedArtworkIds?: string[] };
@@ -993,7 +1365,11 @@ export class SubscriptionService {
     } satisfies PlanDowngrade;
   }
   static planFor(role: UserRole): PlanId {
-    return role === "gallery" || role === "gallery_staff" ? "gallery" : role === "artist" ? "professional" : "free";
+    return role === "gallery" || role === "gallery_staff"
+      ? "gallery"
+      : role === "artist"
+        ? "professional"
+        : "free";
   }
   static planForUser(user: User): PlanId {
     return this.getForUser(user.id)?.planId ?? this.planFor(user.role);
@@ -1013,9 +1389,16 @@ export class PaymentService {
   static listFor(userId: string) {
     return payments.filter((payment) => payment.userId === userId);
   }
-  static async process(input: { userId: string; method: PaymentMethod; simulateFailure?: boolean; pendingReview?: boolean }) {
+  static async process(input: {
+    userId: string;
+    method: PaymentMethod;
+    simulateFailure?: boolean;
+    pendingReview?: boolean;
+  }) {
     if (!activeSelection || activeSelection.planId === "free") {
-      return { error: { code: "NO_PAID_PLAN", message: "A paid plan is required for checkout." } } satisfies ServiceResult<Payment>;
+      return {
+        error: { code: "NO_PAID_PLAN", message: "A paid plan is required for checkout." },
+      } satisfies ServiceResult<Payment>;
     }
     const initiated = await apiClient.post<Record<string, any>>("/api/subscriptions/payment", {
       planId: activeSelection.planId,
@@ -1033,9 +1416,12 @@ export class PaymentService {
       payments.unshift(pending);
       return { data: pending };
     }
-    const confirmed = await apiClient.post<{ payment: Record<string, any> }>(`/api/subscriptions/payment/${initiated.data!.id}/confirm-demo`, {
-      outcome: input.simulateFailure ? "failure" : "success",
-    });
+    const confirmed = await apiClient.post<{ payment: Record<string, any> }>(
+      `/api/subscriptions/payment/${initiated.data!.id}/confirm-demo`,
+      {
+        outcome: input.simulateFailure ? "failure" : "success",
+      },
+    );
     if (confirmed.error) return { error: confirmed.error } as ServiceResult<Payment>;
     const payment = mapPayment(confirmed.data!.payment);
     payments.unshift(payment);
@@ -1045,14 +1431,36 @@ export class PaymentService {
 }
 
 export class VerificationService {
+  static resend() {
+    return apiClient.post<{ accepted: boolean }>("/api/auth/verification/resend");
+  }
+
   static async verify(userId: string, code: string) {
-    const result = await apiClient.post<{ verified: boolean; subscription?: Subscription }>("/api/auth/verify-email", { code });
+    const result = await apiClient.post<{ verified: boolean; subscription?: Subscription }>(
+      "/api/auth/verify-email",
+      { code },
+    );
     if (result.data) {
       SubscriptionService.markVerified(userId);
       if (result.data.subscription) activeSubscription = result.data.subscription;
       await MarketplaceService.bootstrap(true);
     }
     return result;
+  }
+  static list() {
+    return apiClient.get<Record<string, any>[]>("/api/verification");
+  }
+  static submit(input: {
+    storeId: string;
+    type: "artist" | "gallery";
+    submittedData?: Record<string, unknown>;
+    documentReferences?: string[];
+  }) {
+    return apiClient.post<Record<string, any>>("/api/verification", {
+      submittedData: {},
+      documentReferences: [],
+      ...input,
+    });
   }
 }
 
@@ -1061,15 +1469,19 @@ export class FeatureAccessService {
     return Boolean(PLANS[planId]?.allowedModules.includes(module));
   }
   static requiredPlan(module: string): PlanId {
-    if (["managed-artists", "staff", "inventory", "exhibitions", "reports"].includes(module)) return "gallery";
-    if (["advanced-analytics", "customers", "premium-url", "international-tools"].includes(module)) return "pro-plus";
+    if (["managed-artists", "staff", "inventory", "exhibitions", "reports"].includes(module))
+      return "gallery";
+    if (["advanced-analytics", "customers", "premium-url", "international-tools"].includes(module))
+      return "pro-plus";
     return "professional";
   }
   static usage(userId: string, storeId?: string): PlanUsage {
     const artworks = storeId ? ArtworkService.forStore(storeId) : [];
     return {
       userId,
-      activeListings: artworks.filter((artwork) => ["Published", "Pending Review", "Reserved"].includes(artwork.status)).length,
+      activeListings: artworks.filter((artwork) =>
+        ["Published", "Pending Review", "Reserved"].includes(artwork.status),
+      ).length,
       managedArtists: 0,
       staffAccounts: STAFF.length,
       exhibitionPages: EXHIBITIONS.length,
@@ -1079,8 +1491,21 @@ export class FeatureAccessService {
 }
 
 export class PlanChangeService {
-  static recordUpgrade(userId: string, fromPlanId: PlanId, toPlanId: PlanId, paymentId?: string): PlanUpgrade {
-    return { id: paymentId ?? `upgrade-${Date.now()}`, userId, fromPlanId, toPlanId, effectiveAt: new Date().toISOString(), paymentId, status: "Completed" };
+  static recordUpgrade(
+    userId: string,
+    fromPlanId: PlanId,
+    toPlanId: PlanId,
+    paymentId?: string,
+  ): PlanUpgrade {
+    return {
+      id: paymentId ?? `upgrade-${Date.now()}`,
+      userId,
+      fromPlanId,
+      toPlanId,
+      effectiveAt: new Date().toISOString(),
+      paymentId,
+      status: "Completed",
+    };
   }
 }
 
@@ -1098,7 +1523,10 @@ export class OnboardingService {
     return true;
   }
   static async complete<T>(data: T) {
-    const result = await apiClient.post<{ store: Store; artwork?: Artwork }>("/api/stores/onboarding/complete", { data });
+    const result = await apiClient.post<{ store: Store; artwork?: Artwork }>(
+      "/api/stores/onboarding/complete",
+      { data },
+    );
     if (result.data) {
       onboardingCompleted = true;
       onboardingStep = 7;
@@ -1130,7 +1558,10 @@ export function canAccessRole(user: User | null, roles: UserRole[]) {
 }
 
 function slugify(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 // Re-export live collections for modules that use the service adapter as their data boundary.

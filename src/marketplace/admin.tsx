@@ -23,7 +23,6 @@ import {
   MessageCircle,
   Package,
   Palette,
-  Pencil,
   ReceiptText,
   RotateCcw,
   Search,
@@ -42,19 +41,11 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./auth";
-import {
-  ADMIN_METRICS,
-  ARTWORKS,
-  AUDIT_LOG,
-  ORDERS,
-  PROMOTIONS,
-  SEEDED_USERS,
-  STORES,
-} from "./data";
+import { ADMIN_METRICS, ARTWORKS, AUDIT_LOG, PROMOTIONS, SEEDED_USERS, STORES } from "./data";
 import { formatPKR, PLAN_ORDER, PLANS, PROMOTION_PLACEMENTS } from "./config";
 import type { SubscriptionPlan } from "./types";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { AdminService } from "./services";
+import { AdminService, UserService } from "./services";
 
 const adminNavigation = [
   ["Overview", "overview", LayoutDashboard],
@@ -88,6 +79,19 @@ const adminNavigation = [
   ["Audit Log", "audit-log", ShieldCheck],
   ["Settings", "settings", Settings],
 ] as const;
+
+const adminResourceMap: Record<string, string> = {
+  "messages-reports": "conversations",
+  categories: "categories",
+  collections: "collections",
+  exhibitions: "exhibitions",
+  "corporate-leads": "leads",
+  content: "content",
+  notifications: "notifications",
+  support: "support",
+  analytics: "analytics",
+  stores: "stores",
+};
 
 export function AdminDashboard({ section = "overview" }: { section?: string }) {
   const { user, ready, logout } = useAuth();
@@ -147,7 +151,7 @@ export function AdminDashboard({ section = "overview" }: { section?: string }) {
           </aside>
           <main className="min-w-0">
             <div className="mb-6">
-              <div className="eyebrow">Operations workspace · Frontend simulation</div>
+              <div className="eyebrow">Operations workspace · MongoDB connected</div>
               <h1 className="mt-2 font-display text-5xl">{title}</h1>
             </div>
             <AdminSection section={section} />
@@ -163,7 +167,9 @@ function AdminNavigation({ section, logout }: { section: string; logout: () => v
       <div className="border-b border-white/10 p-5">
         <div className="eyebrow !text-white/35">ArtDera operations</div>
         <div className="mt-2 font-display text-2xl">Admin console</div>
-        <div className="mt-1 text-[11px] text-amber-200/60">Simulation — not real security</div>
+        <div className="mt-1 text-[11px] text-amber-200/60">
+          Role protected · audited API actions
+        </div>
       </div>
       <nav className="no-scrollbar flex-1 overflow-y-auto p-3" aria-label="Admin dashboard">
         <div className="grid gap-0.5">
@@ -200,8 +206,9 @@ function AdminSection({ section }: { section: string }) {
     case "artists":
     case "galleries":
     case "buyers":
-    case "stores":
       return <UserManagement type={section} />;
+    case "stores":
+      return <GenericAdminSection section={section} />;
     case "artworks":
       return <ArtworkModeration />;
     case "verification":
@@ -251,8 +258,8 @@ function AdminOverview() {
               Review the queues that protect marketplace trust.
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/62">
-              74 artworks, 29 verification requests and 7 disputes need attention. Every action is
-              logged in this frontend simulation.
+              Review moderation, verification, payment and fulfilment records. Mutations are
+              authorized by the API and recorded in the audit trail.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -286,10 +293,10 @@ function AdminOverview() {
           <div className="eyebrow">Moderation queue</div>
           <div className="mt-5 space-y-3">
             {[
-              ["Artwork review", 74, "/admin/artworks"],
-              ["Verification", 29, "/admin/verification"],
-              ["Promotion approval", 12, "/admin/promotions"],
-              ["Open disputes", 7, "/admin/disputes"],
+              ["Artwork review", ADMIN_METRICS.pendingArtworks, "/admin/artworks"],
+              ["Verification", ADMIN_METRICS.pendingVerification, "/admin/verification"],
+              ["All promotions", PROMOTIONS.length, "/admin/promotions"],
+              ["Open disputes", ADMIN_METRICS.openDisputes, "/admin/disputes"],
             ].map(([label, count, href]) => (
               <a
                 key={label as string}
@@ -298,7 +305,9 @@ function AdminOverview() {
               >
                 <div>
                   <div className="text-sm font-semibold">{label}</div>
-                  <div className="text-[11px] text-muted-foreground">Oldest item: 18 hours</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Loaded from the operations database
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-display text-2xl">{count}</span>
@@ -397,19 +406,18 @@ function UserManagement({ type }: { type: string }) {
                 <td className="p-3">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => toast.info("Profile opened in demo")}
-                      className="admin-action"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => void (async () => {
-                        const next = statuses[user.id] === "Suspended" ? "Active" : "Suspended";
-                        const result = await AdminService.userStatus(user.id, next.toLowerCase() as "active" | "suspended");
-                        if (result.error) return toast.error(result.error.message);
-                        setStatuses((current) => ({ ...current, [user.id]: next }));
-                        toast.success(`Account ${next.toLowerCase()}`);
-                      })()}
+                      onClick={() =>
+                        void (async () => {
+                          const next = statuses[user.id] === "Suspended" ? "Active" : "Suspended";
+                          const result = await AdminService.userStatus(
+                            user.id,
+                            next.toLowerCase() as "active" | "suspended",
+                          );
+                          if (result.error) return toast.error(result.error.message);
+                          setStatuses((current) => ({ ...current, [user.id]: next }));
+                          toast.success(`Account ${next.toLowerCase()}`);
+                        })()
+                      }
                       className="admin-action"
                     >
                       {statuses[user.id] === "Suspended" ? "Reactivate" : "Suspend"}
@@ -433,12 +441,17 @@ function ArtworkModeration() {
   );
   async function act(status: string) {
     const decision = status === "Published" ? "approve" : "reject";
-    const reason = decision === "reject" ? window.prompt("Reason for this moderation decision")?.trim() : undefined;
+    const reason =
+      decision === "reject"
+        ? window.prompt("Reason for this moderation decision")?.trim()
+        : undefined;
     if (decision === "reject" && !reason) return;
     const result = await AdminService.moderateArtwork(active.id, decision, reason);
     if (result.error) return toast.error(result.error.message);
     setStates((current) => ({ ...current, [active.id]: status }));
-    toast.success(`${active.title}: ${status}`, { description: "The decision was saved and added to the audit log." });
+    toast.success(`${active.title}: ${status}`, {
+      description: "The decision was saved and added to the audit log.",
+    });
   }
   return (
     <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
@@ -495,20 +508,8 @@ function ArtworkModeration() {
               <button onClick={() => void act("Published")} className="btn-primary">
                 Approve
               </button>
-              <button onClick={() => void act("Changes Requested")} className="btn-ghost">
-                Request changes
-              </button>
               <button onClick={() => void act("Rejected")} className="btn-ghost">
                 Reject
-              </button>
-              <button onClick={() => act("Duplicate Flagged")} className="btn-ghost">
-                Flag duplicate
-              </button>
-              <button onClick={() => act("Prohibited Flagged")} className="btn-ghost">
-                Flag prohibited
-              </button>
-              <button onClick={() => act("Archived")} className="btn-ghost">
-                Archive
               </button>
             </div>
           </div>
@@ -530,36 +531,96 @@ function VerificationQueue() {
   }, []);
   const decide = async (decision: "approve" | "reject" | "request_changes" | "remove") => {
     if (!active) return;
-    const reason = decision === "approve" || decision === "remove" ? undefined : window.prompt("Reason for this decision")?.trim();
+    const reason =
+      decision === "approve" || decision === "remove"
+        ? undefined
+        : window.prompt("Reason for this decision")?.trim();
     if ((decision === "reject" || decision === "request_changes") && !reason) return;
     const result = await AdminService.verification(active.id, decision, reason);
     if (result.error) return toast.error(result.error.message);
-    const status = decision === "approve" ? "approved" : decision === "request_changes" ? "changes_requested" : decision === "remove" ? "not_submitted" : "rejected";
+    const status =
+      decision === "approve"
+        ? "approved"
+        : decision === "request_changes"
+          ? "changes_requested"
+          : decision === "remove"
+            ? "not_submitted"
+            : "rejected";
     setActive({ ...active, status });
-    setRequests((items) => items.map((item) => item.id === active.id ? { ...item, status } : item));
+    setRequests((items) =>
+      items.map((item) => (item.id === active.id ? { ...item, status } : item)),
+    );
     toast.success("Verification decision saved");
   };
-  if (!active) return <AdminPanel><div className="eyebrow">Verification queue</div><p className="mt-4 text-sm text-muted-foreground">No verification requests are waiting for review.</p></AdminPanel>;
+  if (!active)
+    return (
+      <AdminPanel>
+        <div className="eyebrow">Verification queue</div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          No verification requests are waiting for review.
+        </p>
+      </AdminPanel>
+    );
   return (
     <div className="grid gap-5 lg:grid-cols-[0.75fr_1.25fr]">
       <AdminPanel>
         <div className="eyebrow">{requests.length} verification requests</div>
-        <div className="mt-4 space-y-2">{requests.map((request) => <button key={request.id} onClick={() => setActive(request)} className={`w-full rounded-xl p-4 text-left ${active.id === request.id ? "bg-[var(--ivory)]" : "border border-[var(--color-border)]"}`}><strong>{request.type ?? "Seller"} verification</strong><div className="mt-1 text-xs text-muted-foreground">Account {String(request.userId ?? "").slice(-6)}</div><div className="mt-2"><AdminStatus status={String(request.status ?? "Pending Review").replaceAll("_", " ")} /></div></button>)}</div>
+        <div className="mt-4 space-y-2">
+          {requests.map((request) => (
+            <button
+              key={request.id}
+              onClick={() => setActive(request)}
+              className={`w-full rounded-xl p-4 text-left ${active.id === request.id ? "bg-[var(--ivory)]" : "border border-[var(--color-border)]"}`}
+            >
+              <strong>{request.type ?? "Seller"} verification</strong>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Account {String(request.userId ?? "").slice(-6)}
+              </div>
+              <div className="mt-2">
+                <AdminStatus
+                  status={String(request.status ?? "Pending Review").replaceAll("_", " ")}
+                />
+              </div>
+            </button>
+          ))}
+        </div>
       </AdminPanel>
       <AdminPanel>
         <div className="flex items-start justify-between">
           <div>
             <div className="eyebrow">Seller verification</div>
-            <h2 className="mt-2 font-display text-4xl">{String(active.type ?? "Seller").replace(/^./, (value) => value.toUpperCase())} request</h2>
+            <h2 className="mt-2 font-display text-4xl">
+              {String(active.type ?? "Seller").replace(/^./, (value) => value.toUpperCase())}{" "}
+              request
+            </h2>
           </div>
           <AdminStatus status={String(active.status ?? "pending").replaceAll("_", " ")} />
         </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-[var(--ivory)] p-4"><div className="text-[11px] text-muted-foreground">Request ID</div><div className="mt-2 break-all text-sm font-semibold">{active.id}</div></div><div className="rounded-xl bg-[var(--ivory)] p-4"><div className="text-[11px] text-muted-foreground">Submitted</div><div className="mt-2 text-sm font-semibold">{active.createdAt ? new Date(active.createdAt).toLocaleString() : "Not available"}</div></div></div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-[var(--ivory)] p-4">
+            <div className="text-[11px] text-muted-foreground">Request ID</div>
+            <div className="mt-2 break-all text-sm font-semibold">{active.id}</div>
+          </div>
+          <div className="rounded-xl bg-[var(--ivory)] p-4">
+            <div className="text-[11px] text-muted-foreground">Submitted</div>
+            <div className="mt-2 text-sm font-semibold">
+              {active.createdAt ? new Date(active.createdAt).toLocaleString() : "Not available"}
+            </div>
+          </div>
+        </div>
         <div className="mt-6 flex flex-wrap gap-2">
-          <button onClick={() => void decide("approve")} className="btn-primary">Approve verification</button>
-          <button onClick={() => void decide("request_changes")} className="btn-ghost">Request changes</button>
-          <button onClick={() => void decide("reject")} className="btn-ghost">Reject</button>
-          <button onClick={() => void decide("remove")} className="btn-ghost">Remove badge</button>
+          <button onClick={() => void decide("approve")} className="btn-primary">
+            Approve verification
+          </button>
+          <button onClick={() => void decide("request_changes")} className="btn-ghost">
+            Request changes
+          </button>
+          <button onClick={() => void decide("reject")} className="btn-ghost">
+            Reject
+          </button>
+          <button onClick={() => void decide("remove")} className="btn-ghost">
+            Remove badge
+          </button>
         </div>
       </AdminPanel>
     </div>
@@ -570,11 +631,15 @@ function PromotionModeration() {
     Object.fromEntries(PROMOTIONS.map((item) => [item.id, item.status])),
   );
   const decide = async (id: string, decision: "approve" | "reject" | "cancel") => {
-    const reason = decision === "approve" ? undefined : window.prompt("Reason for this decision")?.trim();
+    const reason =
+      decision === "approve" ? undefined : window.prompt("Reason for this decision")?.trim();
     if (decision !== "approve" && !reason) return;
     const result = await AdminService.promotion(id, decision, reason);
     if (result.error) return toast.error(result.error.message);
-    setStatuses((current) => ({ ...current, [id]: decision === "approve" ? "Scheduled" : decision === "reject" ? "Rejected" : "Cancelled" }));
+    setStatuses((current) => ({
+      ...current,
+      [id]: decision === "approve" ? "Scheduled" : decision === "reject" ? "Rejected" : "Cancelled",
+    }));
     toast.success("Promotion decision saved");
   };
   return (
@@ -628,7 +693,12 @@ function PromotionModeration() {
                 >
                   Reject
                 </button>
-                <button onClick={() => void decide(promotion.id, "cancel")} className="admin-action">Cancel</button>
+                <button
+                  onClick={() => void decide(promotion.id, "cancel")}
+                  className="admin-action"
+                >
+                  Cancel
+                </button>
               </div>
             </article>
           );
@@ -648,8 +718,8 @@ function PlansManagement() {
     <div className="space-y-5">
       <div className="flex gap-3 rounded-xl bg-amber-50 p-4 text-xs text-amber-900">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        Plan configuration is loaded from MongoDB. Changes affect new selections and are recorded
-        in the admin audit trail; existing subscriptions retain their stored snapshot.
+        Plan configuration is loaded from MongoDB. Changes affect new selections and are recorded in
+        the admin audit trail; existing subscriptions retain their stored snapshot.
       </div>
       <div className="grid gap-5 md:grid-cols-2">
         {PLAN_ORDER.map((id) => {
@@ -664,17 +734,8 @@ function PlansManagement() {
                 {plan.recommended && <span className="chip">Recommended</span>}
               </div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <AdminField label="Plan name">
-                  <input
-                    className="art-field"
-                    value={plan.name}
-                    onChange={(event) =>
-                      setPlans((current) => ({
-                        ...current,
-                        [id]: { ...plan, name: event.target.value },
-                      }))
-                    }
-                  />
+                <AdminField label="Plan name (fixed)">
+                  <input className="art-field" value={plan.name} readOnly />
                 </AdminField>
                 <AdminField label="Monthly price">
                   <input
@@ -729,31 +790,26 @@ function PlansManagement() {
                     }
                   />
                 </AdminField>
-                <AdminField label="Payout time">
-                  <input
-                    className="art-field"
-                    value={plan.payoutTime}
-                    onChange={(event) =>
-                      setPlans((current) => ({
-                        ...current,
-                        [id]: { ...plan, payoutTime: event.target.value },
-                      }))
-                    }
-                  />
+                <AdminField label="Payout time (plan policy)">
+                  <input className="art-field" value={plan.payoutTime} readOnly />
                 </AdminField>
               </div>
               <button
-                onClick={() => void (async () => {
-                  const result = await AdminService.plan(plan.id, {
-                    monthlyPrice: plan.monthlyPrice,
-                    annualPrice: plan.annualPrice ?? null,
-                    listingLimit: plan.listingLimit,
-                    commissionRate: plan.commission,
-                    features: plan.features,
-                    permissions: plan.allowedModules,
-                  });
-                  result.error ? toast.error(result.error.message) : toast.success(`${plan.name} plan saved`);
-                })()}
+                onClick={() =>
+                  void (async () => {
+                    const result = await AdminService.plan(plan.id, {
+                      monthlyPrice: plan.monthlyPrice,
+                      annualPrice: plan.annualPrice ?? null,
+                      listingLimit: plan.listingLimit,
+                      commissionRate: plan.commission,
+                      features: plan.features,
+                      permissions: plan.allowedModules,
+                    });
+                    result.error
+                      ? toast.error(result.error.message)
+                      : toast.success(`${plan.name} plan saved`);
+                  })()
+                }
                 className="btn-primary mt-5"
               >
                 Save plan
@@ -766,13 +822,31 @@ function PlansManagement() {
   );
 }
 function OrderOperations({ section }: { section: string }) {
-  const data = section === "orders" ? ORDERS : ORDERS.filter((_, index) => index === 0);
+  const [data, setData] = useState<Array<Record<string, any>>>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const resource = section === "disputes" ? "disputes" : "orders";
+    void AdminService.resource(resource).then((result) => {
+      let items = result.data?.items ?? [];
+      if (section === "returns")
+        items = items.filter((item) =>
+          ["return_requested", "returned"].includes(String(item.status)),
+        );
+      if (section === "refunds")
+        items = items.filter(
+          (item) => String(item.status) === "refunded" || String(item.paymentStatus) === "refunded",
+        );
+      setData(items);
+      if (result.error) toast.error(result.error.message);
+      setLoading(false);
+    });
+  }, [section]);
   return (
     <AdminPanel>
       <div className="flex justify-between">
         <div>
           <div className="eyebrow">{section} queue</div>
-          <h2 className="mt-2 font-display text-3xl">{data.length} demo records</h2>
+          <h2 className="mt-2 font-display text-3xl">{data.length} records</h2>
         </div>
         <select className="art-field !w-auto">
           <option>All statuses</option>
@@ -788,91 +862,94 @@ function OrderOperations({ section }: { section: string }) {
               <th className="p-3">Buyer</th>
               <th className="p-3">Amount</th>
               <th className="p-3">Status</th>
-              <th className="p-3">Action</th>
+              <th className="p-3">Record ID</th>
             </tr>
           </thead>
           <tbody>
             {data.map((order) => (
               <tr key={order.id} className="border-b">
-                <td className="p-3 font-semibold">{order.orderNumber}</td>
-                <td className="p-3">{order.items[0].title}</td>
-                <td className="p-3">Buyer {order.buyerId.slice(-4)}</td>
-                <td className="p-3">{formatPKR(order.total)}</td>
+                <td className="p-3 font-semibold">
+                  {order.orderNumber ?? order.caseNumber ?? order.id}
+                </td>
+                <td className="p-3">{order.items?.[0]?.title ?? order.reason ?? "â€”"}</td>
+                <td className="p-3">
+                  Buyer {String(order.buyerId ?? order.openedBy ?? "").slice(-6)}
+                </td>
+                <td className="p-3">{formatPKR(Number(order.total ?? order.buyerTotal ?? 0))}</td>
                 <td className="p-3">
                   <AdminStatus status={section === "disputes" ? "Open dispute" : order.status} />
                 </td>
-                <td className="p-3">
-                  <button
-                    onClick={() => toast.info(`${section} case opened`)}
-                    className="admin-action"
-                  >
-                    Review
-                  </button>
-                </td>
+                <td className="p-3 text-xs text-muted-foreground">{String(order.id).slice(-8)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {loading && <p className="mt-5 text-sm text-muted-foreground">Loading recordsâ€¦</p>}
     </AdminPanel>
   );
 }
 function FinancialOperations({ section }: { section: string }) {
-  const cards =
-    section === "payouts"
-      ? [
-          ["Pending", "Rs. 4.2m"],
-          ["Available", "Rs. 1.8m"],
-          ["On hold", "Rs. 284k"],
-          ["Paid this month", "Rs. 12.6m"],
-        ]
-      : section === "shipping"
-        ? [
-            ["Awaiting pickup", "42"],
-            ["In transit", "184"],
-            ["Delayed", "7"],
-            ["Delivered today", "63"],
-          ]
-        : [
-            ["Active", "912"],
-            ["Past due", "18"],
-            ["Cancelled", "74"],
-            ["MRR", "Rs. 3.42m"],
-          ];
+  const [records, setRecords] = useState<Array<Record<string, any>>>([]);
+  const [total, setTotal] = useState(0);
+  useEffect(() => {
+    const resource = section === "shipping" ? "shipments" : section;
+    void AdminService.resource(resource).then((result) => {
+      if (result.data) {
+        setRecords(result.data.items);
+        setTotal(result.data.total);
+      } else if (result.error) toast.error(result.error.message);
+    });
+  }, [section]);
+  const grouped = Object.entries(
+    records.reduce<Record<string, number>>((counts, record) => {
+      const key = String(record.status ?? "stored").replaceAll("_", " ");
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {}),
+  ).slice(0, 4);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map(([label, value]) => (
-          <AdminPanel key={label} compact>
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-3 font-display text-3xl">{value}</div>
-          </AdminPanel>
-        ))}
+        {([["Total", total], ...grouped] as Array<[string, number]>)
+          .slice(0, 4)
+          .map(([label, value]) => (
+            <AdminPanel key={label} compact>
+              <div className="text-xs text-muted-foreground">{label}</div>
+              <div className="mt-3 font-display text-3xl">{value}</div>
+            </AdminPanel>
+          ))}
       </div>
       <AdminPanel>
         <div className="eyebrow">{section} operations</div>
         <div className="mt-5 space-y-3">
-          {Array.from({ length: 4 }, (_, index) => (
+          {records.map((record, index) => (
             <div
-              key={index}
+              key={String(record.id ?? index)}
               className="flex items-center justify-between rounded-xl bg-[var(--ivory)] p-4"
             >
               <div>
                 <div className="text-sm font-semibold">
-                  {section.toUpperCase()}-DEMO-{1040 + index}
+                  {record.orderNumber ??
+                    record.trackingNumber ??
+                    record.providerReference ??
+                    record.planId ??
+                    `${section} ${String(record.id ?? "").slice(-8)}`}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Updated {index + 1} hours ago
+                  {record.updatedAt
+                    ? new Date(record.updatedAt).toLocaleString()
+                    : `Record ${index + 1}`}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <AdminStatus status={index === 0 ? "Needs review" : "On schedule"} />
-                <button onClick={() => toast.info("Demo record opened")} className="admin-action">
-                  Open
-                </button>
+                <AdminStatus status={String(record.status ?? "stored").replaceAll("_", " ")} />
               </div>
             </div>
           ))}
+          {!records.length && (
+            <p className="text-sm text-muted-foreground">No {section} records found.</p>
+          )}
         </div>
       </AdminPanel>
     </div>
@@ -884,14 +961,8 @@ function AuditLog() {
       <div className="flex justify-between">
         <div>
           <div className="eyebrow">Admin audit trail</div>
-          <h2 className="mt-2 font-display text-3xl">Recent simulated actions</h2>
+          <h2 className="mt-2 font-display text-3xl">Recent persisted actions</h2>
         </div>
-        <button
-          onClick={() => toast.info("Audit export disabled in frontend demo")}
-          className="btn-ghost"
-        >
-          Export disabled
-        </button>
       </div>
       <div className="mt-5 space-y-3">
         {AUDIT_LOG.map((log) => (
@@ -921,103 +992,34 @@ function AuditLog() {
 function AdminSecurity() {
   return (
     <div className="space-y-5">
-      <div className="flex gap-3 rounded-xl bg-red-50 p-4 text-xs leading-relaxed text-red-900">
-        <LockKeyhole className="h-4 w-4 shrink-0" />
-        These controls are visual simulations only. Real 2FA, session revocation, permissions and
-        account locks require backend enforcement.
+      <div className="flex gap-3 rounded-xl bg-emerald-50 p-4 text-xs leading-relaxed text-emerald-900">
+        <ShieldCheck className="h-4 w-4 shrink-0" />
+        Admin access is enforced by the API. Sessions are stored as hashed tokens and authorized
+        actions are recorded in the audit trail.
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <AdminPanel>
-          <div className="eyebrow">Admin security</div>
-          <div className="mt-5 space-y-3">
-            {[
-              ["Two-factor authentication", "Not connected"],
-              ["Account lock", "Unlocked"],
-              ["Password age", "Demo only"],
-              ["Recovery methods", "Not connected"],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between rounded-xl bg-[var(--ivory)] p-4 text-sm"
-              >
-                <span>{label}</span>
-                <AdminStatus status={value} />
-              </div>
-            ))}
+      <AdminPanel>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div className="eyebrow">Current session</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This browser is authenticated with an HTTP-only cookie.
+            </p>
           </div>
           <button
-            onClick={() => toast.info("2FA setup requires backend authentication")}
-            className="btn-primary mt-5"
+            onClick={() =>
+              void UserService.revokeOtherSessions().then((result) =>
+                result.error
+                  ? toast.error(result.error.message)
+                  : toast.success(`${result.data?.revoked ?? 0} other sessions signed out`),
+              )
+            }
+            className="btn-ghost"
           >
-            Configure two-factor
+            Sign out other sessions
           </button>
-        </AdminPanel>
-        <AdminPanel>
-          <div className="eyebrow">Active sessions</div>
-          <div className="mt-5 space-y-3">
-            {[
-              ["This browser", "Islamabad, Pakistan", "Current"],
-              ["Demo desktop", "Karachi, Pakistan", "2 hours ago"],
-            ].map(([device, location, status]) => (
-              <div key={device} className="rounded-xl border border-[var(--color-border)] p-4">
-                <div className="flex justify-between">
-                  <strong className="text-sm">{device}</strong>
-                  <AdminStatus status={status} />
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">{location}</div>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => toast.success("Other demo sessions signed out")}
-            className="btn-ghost mt-5"
-          >
-            Sign out all other sessions
-          </button>
-        </AdminPanel>
-        <AdminPanel>
-          <div className="eyebrow">Role permissions</div>
-          <div className="mt-5 grid gap-3">
-            {[
-              "Super Admin",
-              "Marketplace Operations",
-              "Trust & Safety",
-              "Finance",
-              "Content Manager",
-              "Support",
-            ].map((role) => (
-              <button
-                key={role}
-                onClick={() => toast.info(`${role} permissions opened`)}
-                className="flex min-h-12 items-center justify-between rounded-xl bg-[var(--ivory)] px-4 text-sm font-semibold"
-              >
-                {role}
-                <Pencil className="h-4 w-4" />
-              </button>
-            ))}
-          </div>
-        </AdminPanel>
-        <AdminPanel>
-          <div className="eyebrow">Login activity</div>
-          <div className="mt-5 space-y-3">
-            {[
-              "Successful sign-in · This browser",
-              "Failed attempt blocked · Demo IP",
-              "Session refreshed · This browser",
-            ].map((value, index) => (
-              <div
-                key={value}
-                className="flex gap-3 rounded-xl border border-[var(--color-border)] p-4 text-sm"
-              >
-                <ShieldCheck
-                  className={`h-4 w-4 ${index === 1 ? "text-[var(--destructive)]" : "text-[var(--success)]"}`}
-                />
-                {value}
-              </div>
-            ))}
-          </div>
-        </AdminPanel>
-      </div>
+        </div>
+      </AdminPanel>
+      <GenericAdminSection section="settings" />
     </div>
   );
 }
@@ -1026,28 +1028,17 @@ function GenericAdminSection({ section }: { section: string }) {
   const [records, setRecords] = useState<Array<Record<string, any>>>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const resourceMap: Record<string, string> = {
-    "messages-reports": "conversations",
-    categories: "categories",
-    collections: "collections",
-    exhibitions: "exhibitions",
-    "corporate-leads": "leads",
-    content: "content",
-    notifications: "notifications",
-    support: "support",
-    analytics: "analytics",
-    stores: "stores",
-  };
+  const resource = adminResourceMap[section] ?? section;
   useEffect(() => {
     setLoading(true);
-    void AdminService.resource(resourceMap[section] ?? section).then((result) => {
+    void AdminService.resource(resource).then((result) => {
       if (result.data) {
         setRecords(result.data.items);
         setTotal(result.data.total);
       } else toast.error(result.error?.message ?? `${label} could not be loaded`);
       setLoading(false);
     });
-  }, [section]);
+  }, [label, resource]);
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -1070,24 +1061,42 @@ function GenericAdminSection({ section }: { section: string }) {
           </div>
         </div>
         <div className="mt-5 space-y-3">
-          {loading ? <p className="text-sm text-muted-foreground">Loading records…</p> : records.length ? records.map((record, index) => (
-            <div
-              key={String(record.id ?? index)}
-              className="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-4"
-            >
-              <div>
-                <div className="text-sm font-semibold">
-                  {record.name ?? record.title ?? record.subject ?? record.ticketNumber ?? record.slug ?? record.action ?? `${label} record ${index + 1}`}
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading records…</p>
+          ) : records.length ? (
+            records.map((record, index) => (
+              <div
+                key={String(record.id ?? index)}
+                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-4"
+              >
+                <div>
+                  <div className="text-sm font-semibold">
+                    {record.name ??
+                      record.title ??
+                      record.subject ??
+                      record.ticketNumber ??
+                      record.slug ??
+                      record.action ??
+                      `${label} record ${index + 1}`}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {record.status
+                      ? String(record.status).replaceAll("_", " ")
+                      : `ID ${String(record.id ?? "").slice(-8)}`}
+                  </div>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {record.status ? String(record.status).replaceAll("_", " ") : `ID ${String(record.id ?? "").slice(-8)}`}
+                <div className="flex items-center gap-3">
+                  <AdminStatus
+                    status={record.status ? String(record.status).replaceAll("_", " ") : "Stored"}
+                  />
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <AdminStatus status={record.status ? String(record.status).replaceAll("_", " ") : "Stored"} />
-              </div>
-            </div>
-          )) : <p className="text-sm text-muted-foreground">No {label.toLowerCase()} records were found.</p>}
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No {label.toLowerCase()} records were found.
+            </p>
+          )}
         </div>
       </AdminPanel>
     </div>

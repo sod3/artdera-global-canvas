@@ -51,8 +51,9 @@ subscriptionsRouter.post(
       })
       .strict()
       .parse(req.body);
-    let subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id })
-      .sort({ createdAt: -1 });
+    let subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id }).sort({
+      createdAt: -1,
+    });
     const targetPlanId = input.planId ?? subscription?.pendingPlanId ?? subscription?.planId;
     const targetCycle = input.billingCycle ?? subscription?.billingCycle;
     if (!targetPlanId || targetPlanId === "free")
@@ -105,8 +106,14 @@ subscriptionsRouter.post(
   asyncRoute(async (req, res) => {
     if (!getEnv().DEMO_PAYMENT_MODE)
       throw new ApiError(404, "NOT_FOUND", "The requested resource was not found");
-    const { outcome } = z.object({ outcome: z.enum(["success", "failure"]).default("success") }).strict().parse(req.body);
-    const payment = await PaymentModel.findOne({ _id: req.params.paymentId, userId: req.auth!.user._id });
+    const { outcome } = z
+      .object({ outcome: z.enum(["success", "failure"]).default("success") })
+      .strict()
+      .parse(req.body);
+    const payment = await PaymentModel.findOne({
+      _id: req.params.paymentId,
+      userId: req.auth!.user._id,
+    });
     if (!payment) throw new ApiError(404, "PAYMENT_NOT_FOUND", "Payment not found");
     if (payment.status === "successful") return ok(res, serializePayment(payment.toObject()));
     const verified = await paymentProvider().verifyPayment(payment.providerReference, outcome);
@@ -114,8 +121,17 @@ subscriptionsRouter.post(
       payment.status = "failed";
       payment.failureReason = verified.failureReason;
       await payment.save();
-      await SubscriptionModel.updateOne({ _id: payment.subscriptionId }, { $set: { status: "payment_failed" } });
-      await notify(req.auth!.user._id, "subscription_payment_failed", "Payment failed", "Your subscription payment did not complete.", "/artist/checkout");
+      await SubscriptionModel.updateOne(
+        { _id: payment.subscriptionId },
+        { $set: { status: "payment_failed" } },
+      );
+      await notify(
+        req.auth!.user._id,
+        "subscription_payment_failed",
+        "Payment failed",
+        "Your subscription payment did not complete.",
+        "/artist/checkout",
+      );
       return ok(res, serializePayment(payment.toObject()), "Demo payment failed");
     }
     const targetPlanId = String(payment.metadata?.targetPlanId ?? "");
@@ -146,9 +162,10 @@ subscriptionsRouter.post(
             },
             $unset: { pendingPlanId: 1, pendingChangeAt: 1 },
           },
-          { new: true, session: dbSession },
+          { returnDocument: "after", session: dbSession },
         );
-        if (!subscription) throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Subscription not found");
+        if (!subscription)
+          throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Subscription not found");
         payment.status = "successful";
         payment.paidAt = verified.paidAt ?? now;
         await payment.save({ session: dbSession });
@@ -159,7 +176,14 @@ subscriptionsRouter.post(
               userId: req.auth!.user._id,
               subscriptionId: subscription._id,
               paymentId: payment._id,
-              items: [{ description: `${plan.name} plan — ${cycle}`, quantity: 1, unitPrice: price, total: price }],
+              items: [
+                {
+                  description: `${plan.name} plan — ${cycle}`,
+                  quantity: 1,
+                  unitPrice: price,
+                  total: price,
+                },
+              ],
               subtotal: price,
               discount: 0,
               tax: 0,
@@ -182,9 +206,22 @@ subscriptionsRouter.post(
     } finally {
       await dbSession.endSession();
     }
-    await notify(req.auth!.user._id, "payment_successful", "Payment successful", `${plan.name} is now active.`, "/artist/payment-success");
-    await audit(req, "subscription.activated", "Subscription", payment.subscriptionId, undefined, { planId: plan.planId, paymentId: payment._id });
-    return ok(res, { payment: serializePayment(payment.toObject()), invoiceId: String(invoiceId) }, "Subscription activated");
+    await notify(
+      req.auth!.user._id,
+      "payment_successful",
+      "Payment successful",
+      `${plan.name} is now active.`,
+      "/artist/payment-success",
+    );
+    await audit(req, "subscription.activated", "Subscription", payment.subscriptionId, undefined, {
+      planId: plan.planId,
+      paymentId: payment._id,
+    });
+    return ok(
+      res,
+      { payment: serializePayment(payment.toObject()), invoiceId: String(invoiceId) },
+      "Subscription activated",
+    );
   }),
 );
 
@@ -192,7 +229,9 @@ subscriptionsRouter.get(
   "/payments",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const payments = await PaymentModel.find({ userId: req.auth!.user._id }).sort({ createdAt: -1 }).lean();
+    const payments = await PaymentModel.find({ userId: req.auth!.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
     return ok(res, payments.map(serializePayment));
   }),
 );
@@ -201,7 +240,9 @@ subscriptionsRouter.get(
   "/invoices",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const invoices = await InvoiceModel.find({ userId: req.auth!.user._id }).sort({ createdAt: -1 }).lean();
+    const invoices = await InvoiceModel.find({ userId: req.auth!.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
     return ok(
       res,
       invoices.map((invoice) => ({
@@ -214,7 +255,8 @@ subscriptionsRouter.get(
         tax: invoice.tax,
         discount: invoice.discount,
         total: invoice.total,
-        status: invoice.status === "paid" ? "Paid" : invoice.status === "void" ? "Voided" : "Pending",
+        status:
+          invoice.status === "paid" ? "Paid" : invoice.status === "void" ? "Voided" : "Pending",
         issuedAt: invoice.issuedAt.toISOString(),
         invoiceNumber: invoice.invoiceNumber,
       })),
@@ -235,8 +277,12 @@ subscriptionsRouter.post(
       })
       .strict()
       .parse(req.body);
-    const subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id, status: "active" });
-    if (!subscription) throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Active subscription not found");
+    const subscription = await SubscriptionModel.findOne({
+      userId: req.auth!.user._id,
+      status: "active",
+    });
+    if (!subscription)
+      throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Active subscription not found");
     if (input.planId === subscription.planId)
       throw new ApiError(422, "PLAN_UNCHANGED", "Choose a different plan");
     const { plan, cycle, price } = await getActivePlan(input.planId, input.billingCycle);
@@ -245,25 +291,52 @@ subscriptionsRouter.post(
       subscription.pendingPlanId = plan.planId;
       subscription.pendingChangeAt = new Date();
       await subscription.save();
-      return ok(res, { requiresPayment: price > 0, subscription: serializeSubscription(subscription.toObject()) }, "Upgrade payment is required");
+      return ok(
+        res,
+        {
+          requiresPayment: price > 0,
+          subscription: serializeSubscription(subscription.toObject()),
+        },
+        "Upgrade payment is required",
+      );
     }
-    const effectiveAt = input.effective === "immediately" ? new Date() : subscription.currentPeriodEnd ?? new Date();
+    const effectiveAt =
+      input.effective === "immediately"
+        ? new Date()
+        : (subscription.currentPeriodEnd ?? new Date());
     if (input.effective === "end-of-cycle") {
       subscription.pendingPlanId = plan.planId;
       subscription.pendingChangeAt = effectiveAt;
       await subscription.save();
-      await audit(req, "subscription.downgrade_scheduled", "Subscription", subscription._id, undefined, { planId: plan.planId, effectiveAt });
+      await audit(
+        req,
+        "subscription.downgrade_scheduled",
+        "Subscription",
+        subscription._id,
+        undefined,
+        { planId: plan.planId, effectiveAt },
+      );
       return ok(res, serializeSubscription(subscription.toObject()), "Downgrade scheduled");
     }
-    const activeArtworks = await ArtworkModel.find({ artistId: req.auth!.user._id, status: { $in: ["published", "pending_review", "reserved"] } }).sort({ createdAt: 1 });
+    const activeArtworks = await ArtworkModel.find({
+      artistId: req.auth!.user._id,
+      status: { $in: ["published", "pending_review", "reserved"] },
+    }).sort({ createdAt: 1 });
     const allowed = plan.listingLimit ?? activeArtworks.length;
     const keep = new Set(input.keepArtworkIds);
-    const selected = activeArtworks.filter((artwork) => keep.has(String(artwork._id))).slice(0, allowed);
+    const selected = activeArtworks
+      .filter((artwork) => keep.has(String(artwork._id)))
+      .slice(0, allowed);
     const remainingSlots = Math.max(0, allowed - selected.length);
-    const fallback = activeArtworks.filter((artwork) => !keep.has(String(artwork._id))).slice(0, remainingSlots);
+    const fallback = activeArtworks
+      .filter((artwork) => !keep.has(String(artwork._id)))
+      .slice(0, remainingSlots);
     const keepIds = new Set([...selected, ...fallback].map((artwork) => String(artwork._id)));
-    const archiveIds = activeArtworks.filter((artwork) => !keepIds.has(String(artwork._id))).map((artwork) => artwork._id);
-    if (archiveIds.length) await ArtworkModel.updateMany({ _id: { $in: archiveIds } }, { $set: { status: "archived" } });
+    const archiveIds = activeArtworks
+      .filter((artwork) => !keepIds.has(String(artwork._id)))
+      .map((artwork) => artwork._id);
+    if (archiveIds.length)
+      await ArtworkModel.updateMany({ _id: { $in: archiveIds } }, { $set: { status: "archived" } });
     subscription.planId = plan.planId;
     subscription.billingCycle = cycle;
     subscription.price = price;
@@ -273,10 +346,29 @@ subscriptionsRouter.post(
     subscription.pendingPlanId = undefined;
     subscription.pendingChangeAt = undefined;
     await subscription.save();
-    await ListingQuotaModel.updateOne({ userId: req.auth!.user._id }, { $set: { activeListings: Math.min(activeArtworks.length, allowed) } }, { upsert: true });
-    await notify(req.auth!.user._id, "subscription_downgraded", "Subscription updated", `Your plan is now ${plan.name}.`);
-    await audit(req, "subscription.downgraded", "Subscription", subscription._id, undefined, { planId: plan.planId, archivedArtworkIds: archiveIds });
-    return ok(res, { subscription: serializeSubscription(subscription.toObject()), archivedArtworkIds: archiveIds.map(String) }, "Plan changed");
+    await ListingQuotaModel.updateOne(
+      { userId: req.auth!.user._id },
+      { $set: { activeListings: Math.min(activeArtworks.length, allowed) } },
+      { upsert: true },
+    );
+    await notify(
+      req.auth!.user._id,
+      "subscription_downgraded",
+      "Subscription updated",
+      `Your plan is now ${plan.name}.`,
+    );
+    await audit(req, "subscription.downgraded", "Subscription", subscription._id, undefined, {
+      planId: plan.planId,
+      archivedArtworkIds: archiveIds,
+    });
+    return ok(
+      res,
+      {
+        subscription: serializeSubscription(subscription.toObject()),
+        archivedArtworkIds: archiveIds.map(String),
+      },
+      "Plan changed",
+    );
   }),
 );
 
@@ -284,9 +376,16 @@ subscriptionsRouter.post(
   "/cancel",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const { immediately } = z.object({ immediately: z.boolean().default(false) }).strict().parse(req.body);
-    const subscription = await SubscriptionModel.findOne({ userId: req.auth!.user._id, status: "active" });
-    if (!subscription) throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Active subscription not found");
+    const { immediately } = z
+      .object({ immediately: z.boolean().default(false) })
+      .strict()
+      .parse(req.body);
+    const subscription = await SubscriptionModel.findOne({
+      userId: req.auth!.user._id,
+      status: "active",
+    });
+    if (!subscription)
+      throw new ApiError(404, "SUBSCRIPTION_NOT_FOUND", "Active subscription not found");
     if (immediately) {
       const { plan } = await getActivePlan("free", "free");
       subscription.planId = "free";
@@ -301,13 +400,22 @@ subscriptionsRouter.post(
       subscription.cancelledAt = new Date();
     }
     await subscription.save();
-    await audit(req, "subscription.cancelled", "Subscription", subscription._id, undefined, { immediately });
+    await audit(req, "subscription.cancelled", "Subscription", subscription._id, undefined, {
+      immediately,
+    });
     return ok(res, serializeSubscription(subscription.toObject()), "Cancellation saved");
   }),
 );
 
 function serializePayment(payment: Record<string, any>) {
-  const status = payment.status === "successful" ? "Succeeded" : payment.status === "failed" ? "Failed" : payment.status === "processing" ? "Processing" : "Pending Review";
+  const status =
+    payment.status === "successful"
+      ? "Succeeded"
+      : payment.status === "failed"
+        ? "Failed"
+        : payment.status === "processing"
+          ? "Processing"
+          : "Pending Review";
   return {
     id: String(payment._id),
     userId: String(payment.userId),

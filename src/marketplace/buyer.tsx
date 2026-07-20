@@ -4,14 +4,11 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Eye,
   Heart,
-  Home,
   LockKeyhole,
   MapPin,
   MessageCircle,
   Package,
-  Palette,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -22,11 +19,20 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { useAuth } from "./auth";
-import { ARTWORKS, NOTIFICATIONS, ORDERS, STORES } from "./data";
+import { ARTWORKS, REVIEWS } from "./data";
 import { formatPKR } from "./config";
+import {
+  FollowService,
+  MessageService,
+  NotificationService,
+  OrderService,
+  UserService,
+  WishlistService,
+} from "./services";
+import type { Artwork, Notification, Store } from "./types";
 
 const navigation = [
   ["Profile", "profile", User],
@@ -58,7 +64,7 @@ export function BuyerDashboard({ section = "profile" }: { section?: string }) {
           <LockKeyhole className="mx-auto h-9 w-9 text-[var(--oxblood)]" />
           <h1 className="mt-5 font-display text-4xl">Buyer sign-in required.</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Use the buyer demo to test orders, saved work, messages and account settings.
+            Sign in with a verified buyer account to view orders, saved work, messages and settings.
           </p>
           <Link to="/auth/login" className="btn-primary mt-6">
             Sign in
@@ -144,13 +150,25 @@ function BuyerSection({ section }: { section: string }) {
   }
 }
 function BuyerProfile() {
+  const { user } = useAuth();
+  const [savedCount, setSavedCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  useEffect(() => {
+    void Promise.all([WishlistService.list(), FollowService.list()]).then(([saved, following]) => {
+      setSavedCount(saved.data?.length ?? 0);
+      setFollowingCount(following.data?.length ?? 0);
+    });
+  }, []);
+  const orders = user ? OrderService.listFor(user.id, "buyer") : [];
   return (
     <div className="space-y-6">
       <BuyerPanel>
         <div className="grid gap-7 md:grid-cols-[1fr_auto]">
           <div>
             <div className="eyebrow">Welcome back</div>
-            <h2 className="mt-2 font-display text-4xl">Hamza, your collection is taking shape.</h2>
+            <h2 className="mt-2 font-display text-4xl">
+              {user?.fullName}, your collection is taking shape.
+            </h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
               Continue a conversation, check your preparing order or revisit work saved for later.
             </p>
@@ -165,10 +183,10 @@ function BuyerProfile() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              ["Orders", "2"],
-              ["Saved", "12"],
-              ["Following", "5"],
-              ["Messages", "3"],
+              ["Orders", String(orders.length)],
+              ["Saved", String(savedCount)],
+              ["Following", String(followingCount)],
+              ["Reviews", String(REVIEWS.length)],
             ].map(([label, value]) => (
               <div key={label} className="min-w-28 rounded-xl bg-[var(--ivory)] p-4 text-center">
                 <div className="font-display text-3xl">{value}</div>
@@ -180,7 +198,7 @@ function BuyerProfile() {
       </BuyerPanel>
       <div className="grid gap-6 xl:grid-cols-2">
         <BuyerPanel>
-          <div className="eyebrow">Recently viewed</div>
+          <div className="eyebrow">Explore the current catalogue</div>
           <div className="mt-5 grid grid-cols-3 gap-3">
             {ARTWORKS.slice(0, 3).map((item) => (
               <a key={item.id} href={`/product/${item.slug}`}>
@@ -200,7 +218,7 @@ function BuyerProfile() {
             {[
               "Seller information stays inside ArtDera before purchase.",
               "Order status and delivery milestones are visible in your account.",
-              "Return eligibility is shown before demo checkout.",
+              "Return eligibility is shown before checkout.",
             ].map((value) => (
               <div
                 key={value}
@@ -217,12 +235,18 @@ function BuyerProfile() {
   );
 }
 function BuyerOrders() {
-  const [status, setStatus] = useState("Preparing");
+  const { user } = useAuth();
+  const [orders, setOrders] = useState(() => (user ? OrderService.listFor(user.id, "buyer") : []));
+  useEffect(() => {
+    void OrderService.refresh().then(() => {
+      if (user) setOrders(OrderService.listFor(user.id, "buyer"));
+    });
+  }, [user]);
   return (
     <BuyerPanel>
       <div className="eyebrow">Orders</div>
       <div className="mt-5 space-y-4">
-        {ORDERS.filter((order) => order.buyerId === "user-buyer").map((order) => (
+        {orders.map((order) => (
           <article key={order.id} className="rounded-2xl border border-[var(--color-border)] p-5">
             <div className="grid gap-5 md:grid-cols-[90px_1fr_auto]">
               <img
@@ -235,13 +259,25 @@ function BuyerOrders() {
                 <h2 className="mt-1 font-display text-2xl">{order.items[0].title}</h2>
                 <div className="mt-2 text-sm font-semibold">{formatPKR(order.total)}</div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="chip">{status}</span>
+                  <span className="chip">{order.status}</span>
                   <span className="chip">Delivery to {order.deliveryCity}</span>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={() => toast.info("Tracking: DEMO-PAK-832109")}
+                  onClick={() =>
+                    void OrderService.shipping(order.id).then((result) => {
+                      if (result.error) return toast.error(result.error.message);
+                      const shipment = result.data;
+                      if (!shipment)
+                        return toast.info("A shipment has not been created for this order yet.");
+                      toast.info(
+                        shipment.trackingNumber
+                          ? `Tracking ${shipment.trackingNumber} Â· ${shipment.status}`
+                          : `Shipment status: ${shipment.status}`,
+                      );
+                    })
+                  }
                   className="btn-primary"
                 >
                   Track order
@@ -252,25 +288,49 @@ function BuyerOrders() {
               </div>
             </div>
             <div className="mt-6 grid grid-cols-5 gap-1">
-              {["Paid", "Confirmed", "Preparing", "Shipped", "Delivered"].map((label, index) => (
-                <div key={label} className="text-center">
-                  <div
-                    className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[10px] ${index <= 2 ? "bg-[var(--success)] text-white" : "bg-[var(--ivory)]"}`}
-                  >
-                    {index <= 2 ? <Check className="h-3 w-3" /> : index + 1}
-                  </div>
-                  <div className="mt-2 text-[9px] text-muted-foreground">{label}</div>
-                </div>
-              ))}
+              {["Paid", "Seller Confirmed", "Preparing", "Shipped", "Delivered"].map(
+                (label, index, steps) => {
+                  const current = steps.indexOf(
+                    order.status === "Out for Delivery"
+                      ? "Shipped"
+                      : order.status === "Inspection Period" || order.status === "Completed"
+                        ? "Delivered"
+                        : order.status,
+                  );
+                  return (
+                    <div key={label} className="text-center">
+                      <div
+                        className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[10px] ${current >= index ? "bg-[var(--success)] text-white" : "bg-[var(--ivory)]"}`}
+                      >
+                        {current >= index ? <Check className="h-3 w-3" /> : index + 1}
+                      </div>
+                      <div className="mt-2 text-[9px] text-muted-foreground">{label}</div>
+                    </div>
+                  );
+                },
+              )}
             </div>
           </article>
         ))}
+        {!orders.length && (
+          <BuyerEmpty
+            icon={Package}
+            title="No orders yet."
+            body="Orders will appear here after checkout."
+          />
+        )}
       </div>
     </BuyerPanel>
   );
 }
 function BuyerWishlist() {
-  const [items, setItems] = useState(ARTWORKS.slice(0, 4));
+  const [items, setItems] = useState<Artwork[]>([]);
+  useEffect(() => {
+    void WishlistService.list().then((result) => {
+      if (result.data) setItems(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <BuyerPanel>
       <div className="flex items-end justify-between">
@@ -296,7 +356,10 @@ function BuyerWishlist() {
                 </a>
                 <button
                   onClick={() =>
-                    setItems((values) => values.filter((value) => value.id !== item.id))
+                    void WishlistService.remove(item.id).then((result) => {
+                      if (result.error) return toast.error(result.error.message);
+                      setItems((values) => values.filter((value) => value.id !== item.id));
+                    })
                   }
                   className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--porcelain)]"
                   aria-label={`Remove ${item.title}`}
@@ -320,11 +383,18 @@ function BuyerWishlist() {
   );
 }
 function FollowedArtists() {
+  const [stores, setStores] = useState<Store[]>([]);
+  useEffect(() => {
+    void FollowService.list().then((result) => {
+      if (result.data) setStores(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <BuyerPanel>
       <div className="eyebrow">Followed stores</div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        {STORES.map((store) => (
+        {stores.map((store) => (
           <article
             key={store.id}
             className="overflow-hidden rounded-2xl border border-[var(--color-border)]"
@@ -346,7 +416,16 @@ function FollowedArtists() {
                 <a href={`/store/${store.slug}`} className="btn-primary flex-1">
                   View store
                 </a>
-                <button onClick={() => toast.success("Store unfollowed")} className="btn-ghost">
+                <button
+                  onClick={() =>
+                    void FollowService.unfollow(store.id).then((result) => {
+                      if (result.error) return toast.error(result.error.message);
+                      setStores((items) => items.filter((item) => item.id !== store.id));
+                      toast.success("Store unfollowed");
+                    })
+                  }
+                  className="btn-ghost"
+                >
                   Following
                 </button>
               </div>
@@ -354,193 +433,215 @@ function FollowedArtists() {
           </article>
         ))}
       </div>
+      {!stores.length && (
+        <BuyerEmpty
+          icon={Users}
+          title="You are not following any stores."
+          body="Follow a store to keep it close at hand."
+        />
+      )}
     </BuyerPanel>
   );
 }
 function BuyerMessages() {
-  const [text, setText] = useState("");
   return (
     <BuyerPanel>
-      <div className="grid min-h-[540px] overflow-hidden rounded-xl border border-[var(--color-border)] md:grid-cols-[260px_1fr]">
-        <aside className="border-b border-[var(--color-border)] p-3 md:border-b-0 md:border-r">
-          <div className="rounded-xl bg-[var(--ivory)] p-3">
-            <strong className="text-sm">Areeba Hasan</strong>
-            <div className="mt-1 text-xs text-muted-foreground">About {ARTWORKS[0].title}</div>
-            <div className="mt-2 text-[11px]">That would be helpful…</div>
-          </div>
-        </aside>
-        <main className="flex flex-col">
-          <div className="border-b border-[var(--color-border)] p-4">
-            <strong>Areeba Hasan</strong>
-            <div className="text-xs text-muted-foreground">Protected ArtDera conversation</div>
-          </div>
-          <div className="flex-1 space-y-3 p-4">
-            {[
-              "Hello, could you confirm whether the work arrives ready to hang?",
-              "Yes — the hanging hardware is fitted. I can also share a short artwork video here.",
-              "That would be helpful. Would you consider an offer of Rs. 72,000?",
-            ].map((body, index) => (
-              <div
-                key={body}
-                className={`max-w-[80%] rounded-2xl p-4 text-sm ${index === 1 ? "ml-auto bg-[var(--ink)] text-white" : "bg-[var(--ivory)]"}`}
-              >
-                {body}
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-[var(--color-border)] p-4">
-            <div className="mb-3 flex gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-900">
-              <ShieldCheck className="h-4 w-4 shrink-0" />
-              Keep phone, email, WhatsApp and payment links private before a confirmed order.
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                className="art-field"
-                placeholder="Write a message"
-              />
-              <button
-                onClick={() => {
-                  if (!text) return;
-                  toast.success("Demo message sent");
-                  setText("");
-                }}
-                className="btn-primary"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </main>
+      <div className="py-10 text-center">
+        <MessageCircle className="mx-auto h-8 w-8 text-[var(--oxblood)]" />
+        <h2 className="mt-4 font-display text-3xl">Protected marketplace messages</h2>
+        <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
+          Conversations, offers and consultation requests are loaded from your authenticated
+          account.
+        </p>
+        <a href="/messages" className="btn-primary mt-5">
+          Open messages
+        </a>
       </div>
     </BuyerPanel>
   );
 }
 function Offers() {
-  const [state, setState] = useState("Countered");
+  const [offers, setOffers] = useState<Array<Record<string, any>>>([]);
+  useEffect(() => {
+    void MessageService.listConversations().then(async (result) => {
+      if (!result.data) return;
+      const details = await Promise.all(
+        result.data.map((conversation) => MessageService.getConversation(conversation.id)),
+      );
+      setOffers(details.flatMap((detail) => detail.data?.offers ?? []));
+    });
+  }, []);
   return (
     <BuyerPanel>
       <div className="eyebrow">Offers</div>
-      <article className="mt-5 grid gap-5 rounded-2xl border border-[var(--color-border)] p-5 sm:grid-cols-[100px_1fr_auto]">
-        <img
-          src={ARTWORKS[0].images[0].url}
-          alt=""
-          className="aspect-[4/5] w-full rounded-lg object-cover"
-        />
-        <div>
-          <div className="font-display text-2xl">{ARTWORKS[0].title}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            Listed at {formatPKR(ARTWORKS[0].price)}
-          </div>
-          <div className="mt-4 text-sm">
-            Your offer <strong>Rs. 72,000</strong>
-          </div>
-          <div className="mt-2 text-sm">
-            Artist counter <strong>Rs. 76,000</strong>
-          </div>
-        </div>
-        <div>
-          <span className="chip">{state}</span>
-          <div className="mt-4 grid gap-2">
-            <button
-              onClick={() => {
-                setState("Accepted");
-                toast.success("Counter-offer accepted");
-              }}
-              className="btn-primary"
+      <div className="mt-5 space-y-4">
+        {offers.map((offer) => {
+          const artwork = ARTWORKS.find((item) => item.id === offer.artworkId);
+          const update = async (action: "accept" | "reject" | "withdraw") => {
+            const result = await MessageService.updateOffer(offer.id, action);
+            if (result.error) return toast.error(result.error.message);
+            setOffers((items) =>
+              items.map((item) =>
+                item.id === offer.id
+                  ? {
+                      ...item,
+                      status:
+                        action === "accept"
+                          ? "Accepted"
+                          : action === "reject"
+                            ? "Rejected"
+                            : "Withdrawn",
+                    }
+                  : item,
+              ),
+            );
+          };
+          return (
+            <article
+              key={offer.id}
+              className="grid gap-5 rounded-2xl border border-[var(--color-border)] p-5 sm:grid-cols-[100px_1fr_auto]"
             >
-              Accept
-            </button>
-            <button onClick={() => setState("Rejected")} className="btn-ghost">
-              Decline
-            </button>
-          </div>
-        </div>
-      </article>
+              {artwork && (
+                <img
+                  src={artwork.images[0].url}
+                  alt=""
+                  className="aspect-[4/5] w-full rounded-lg object-cover"
+                />
+              )}
+              <div>
+                <div className="font-display text-2xl">{artwork?.title ?? "Artwork offer"}</div>
+                <div className="mt-4 text-sm">
+                  Your offer <strong>{formatPKR(Number(offer.amount))}</strong>
+                </div>
+                {offer.counterPrice && (
+                  <div className="mt-2 text-sm">
+                    Artist counter <strong>{formatPKR(Number(offer.counterPrice))}</strong>
+                  </div>
+                )}
+              </div>
+              <div>
+                <span className="chip">{offer.status}</span>
+                {["Pending", "Countered"].includes(String(offer.status)) && (
+                  <div className="mt-4 grid gap-2">
+                    {offer.status === "Countered" && (
+                      <button onClick={() => void update("accept")} className="btn-primary">
+                        Accept
+                      </button>
+                    )}
+                    <button
+                      onClick={() =>
+                        void update(offer.status === "Pending" ? "withdraw" : "reject")
+                      }
+                      className="btn-ghost"
+                    >
+                      {offer.status === "Pending" ? "Withdraw" : "Decline"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {!offers.length && (
+        <BuyerEmpty
+          icon={Tag}
+          title="No offers yet."
+          body="Offers made through ArtDera will appear here."
+        />
+      )}
     </BuyerPanel>
   );
 }
 function Consultations() {
+  const [consultations, setConsultations] = useState<Array<Record<string, any>>>([]);
+  useEffect(() => {
+    void MessageService.listConversations().then(async (result) => {
+      if (!result.data) return;
+      const details = await Promise.all(
+        result.data.map((conversation) => MessageService.getConversation(conversation.id)),
+      );
+      setConsultations(details.flatMap((detail) => detail.data?.consultations ?? []));
+    });
+  }, []);
   return (
     <BuyerPanel>
       <div className="eyebrow">Video consultations</div>
-      <div className="mt-5 rounded-2xl border border-[var(--color-border)] p-5">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row">
-          <div>
-            <div className="flex gap-2">
-              <span className="chip">Accepted</span>
-              <span className="chip">Demo request</span>
-            </div>
-            <h2 className="mt-4 font-display text-3xl">Artwork viewing with Areeba Hasan</h2>
-            <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <span>
-                <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
-                July 25, 2026 · 5:00 PM
-              </span>
-              <span>
-                <Video className="mr-1 inline h-3.5 w-3.5" />
-                Mock meeting link
-              </span>
+      <div className="mt-5 space-y-4">
+        {consultations.map((consultation) => (
+          <div
+            key={consultation.id}
+            className="rounded-2xl border border-[var(--color-border)] p-5"
+          >
+            <div className="flex flex-col justify-between gap-4 sm:flex-row">
+              <div>
+                <span className="chip">{String(consultation.status).replaceAll("_", " ")}</span>
+                <h2 className="mt-4 font-display text-3xl">Private artwork viewing</h2>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <CalendarDays className="mr-1 inline h-3.5 w-3.5" />
+                  {new Date(consultation.preferredDate).toLocaleDateString("en-PK")} ·{" "}
+                  {consultation.preferredTime} {consultation.timezone}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {consultation.meetingLink && (
+                  <a
+                    href={consultation.meetingLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary"
+                  >
+                    Open meeting
+                  </a>
+                )}
+                {["requested", "accepted", "alternate_suggested"].includes(
+                  String(consultation.status),
+                ) && (
+                  <button
+                    onClick={() =>
+                      void MessageService.updateConsultation(consultation.id, {
+                        action: "cancel",
+                      }).then((result) => {
+                        if (result.error) return toast.error(result.error.message);
+                        setConsultations((items) =>
+                          items.map((item) =>
+                            item.id === consultation.id ? { ...item, status: "cancelled" } : item,
+                          ),
+                        );
+                      })
+                    }
+                    className="btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-          <button
-            onClick={() => toast.info("Meeting links will work when a provider is connected.")}
-            className="btn-primary"
-          >
-            Open meeting link
-          </button>
-        </div>
+        ))}
       </div>
+      {!consultations.length && (
+        <BuyerEmpty
+          icon={Video}
+          title="No consultations scheduled."
+          body="Request a private artwork viewing from a product or store page."
+        />
+      )}
     </BuyerPanel>
   );
 }
 function Addresses() {
-  const [editing, setEditing] = useState(false);
   return (
     <BuyerPanel>
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="eyebrow">Delivery addresses</div>
-          <h2 className="mt-2 font-display text-3xl">Where art arrives.</h2>
-        </div>
-        <button onClick={() => setEditing(true)} className="btn-primary">
-          Add address
-        </button>
-      </div>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-[var(--oxblood)] p-5">
-          <span className="chip">Default</span>
-          <div className="mt-4 font-semibold">Home</div>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            House 18, Street 7<br />
-            F-7/2, Islamabad
-            <br />
-            Pakistan
-          </p>
-          <button onClick={() => setEditing(true)} className="mt-4 text-xs font-semibold underline">
-            Edit address
-          </button>
-        </div>
-        {editing && (
-          <div className="rounded-2xl bg-[var(--ivory)] p-5">
-            <div className="font-semibold">New address</div>
-            <div className="mt-4 grid gap-3">
-              <input className="art-field" placeholder="Address line" />
-              <input className="art-field" placeholder="City" />
-              <button
-                onClick={() => {
-                  setEditing(false);
-                  toast.success("Demo address saved");
-                }}
-                className="btn-primary"
-              >
-                Save address
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <div className="eyebrow">Delivery addresses</div>
+      <h2 className="mt-2 font-display text-3xl">Entered securely during checkout.</h2>
+      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        ArtDera snapshots the delivery and billing address onto each order. It does not expose an
+        address publicly or invent a saved default address for your account.
+      </p>
+      <a href="/cart" className="btn-primary mt-6">
+        Go to cart
+      </a>
     </BuyerPanel>
   );
 }
@@ -548,26 +649,38 @@ function BuyerReviews() {
   return (
     <BuyerPanel>
       <div className="eyebrow">Your reviews</div>
-      <article className="mt-5 rounded-2xl border border-[var(--color-border)] p-5">
-        <div className="flex text-amber-500">
-          {Array.from({ length: 5 }, (_, index) => (
-            <Star key={index} className="h-4 w-4" fill="currentColor" />
-          ))}
-        </div>
-        <h2 className="mt-3 font-semibold">Even better in the room</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The colours were accurately represented and the packing was careful.
-        </p>
-        <div className="mt-4 flex gap-3 text-xs">
-          <button className="font-semibold underline">Edit</button>
-          <button className="text-muted-foreground">Delete</button>
-        </div>
-      </article>
+      <div className="mt-5 space-y-4">
+        {REVIEWS.map((review) => (
+          <article key={review.id} className="rounded-2xl border border-[var(--color-border)] p-5">
+            <div className="flex text-amber-500">
+              {Array.from({ length: review.rating }, (_, index) => (
+                <Star key={index} className="h-4 w-4" fill="currentColor" />
+              ))}
+            </div>
+            <h2 className="mt-3 font-semibold">{review.title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{review.body}</p>
+            <span className="chip mt-4">{review.status}</span>
+          </article>
+        ))}
+      </div>
+      {!REVIEWS.length && (
+        <BuyerEmpty
+          icon={Star}
+          title="No reviews yet."
+          body="A review can be submitted after an eligible order is completed."
+        />
+      )}
     </BuyerPanel>
   );
 }
 function BuyerNotifications() {
-  const [items, setItems] = useState(NOTIFICATIONS.filter((item) => item.userId === "user-buyer"));
+  const [items, setItems] = useState<Notification[]>([]);
+  useEffect(() => {
+    void NotificationService.list().then((result) => {
+      if (result.data) setItems(result.data);
+      else if (result.error) toast.error(result.error.message);
+    });
+  }, []);
   return (
     <BuyerPanel>
       <div className="flex items-end justify-between">
@@ -576,7 +689,12 @@ function BuyerNotifications() {
           <h2 className="mt-2 font-display text-3xl">Updates that matter.</h2>
         </div>
         <button
-          onClick={() => setItems((values) => values.map((item) => ({ ...item, read: true })))}
+          onClick={() =>
+            void NotificationService.readAll().then((result) => {
+              if (result.error) return toast.error(result.error.message);
+              setItems((values) => values.map((item) => ({ ...item, read: true })));
+            })
+          }
           className="btn-ghost"
         >
           Mark all read
@@ -589,10 +707,21 @@ function BuyerNotifications() {
             className={`flex gap-4 rounded-xl p-4 ${item.read ? "border border-[var(--color-border)]" : "bg-[var(--ivory)]"}`}
           >
             <Bell className="h-4 w-4 text-[var(--oxblood)]" />
-            <div>
+            <div className="flex-1">
               <div className="text-sm font-semibold">{item.title}</div>
               <div className="mt-1 text-xs text-muted-foreground">{item.body}</div>
             </div>
+            <button
+              onClick={() =>
+                void NotificationService.remove(item.id).then((result) => {
+                  if (result.error) return toast.error(result.error.message);
+                  setItems((values) => values.filter((value) => value.id !== item.id));
+                })
+              }
+              className="text-xs text-muted-foreground"
+            >
+              Delete
+            </button>
           </div>
         ))}
       </div>
@@ -613,7 +742,13 @@ function Security() {
             Change password
           </button>
           <button
-            onClick={() => toast.info("Other demo sessions signed out")}
+            onClick={() =>
+              void UserService.revokeOtherSessions().then((result) =>
+                result.error
+                  ? toast.error(result.error.message)
+                  : toast.success(`${result.data?.revoked ?? 0} other sessions signed out`),
+              )
+            }
             className="btn-ghost justify-start"
           >
             <ShieldCheck className="h-4 w-4" />
@@ -627,64 +762,69 @@ function Security() {
           <div>
             <div className="font-semibold">This browser</div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Pakistan · Active now · Expires after one hour
+              Active now · protected by an HTTP-only session cookie
             </div>
           </div>
           <span className="chip">Current</span>
         </div>
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-          Frontend route guards and session simulation are not production security. Backend
-          authorization is required.
+          The API validates this session and the account role again for every protected request.
         </p>
       </BuyerPanel>
     </div>
   );
 }
 function BuyerSettings() {
+  const [preferences, setPreferences] = useState<Record<string, boolean>>({
+    email: true,
+    inApp: true,
+    marketing: false,
+    orderUpdates: true,
+    messageUpdates: true,
+  });
+  useEffect(() => {
+    void NotificationService.preferences().then((result) => {
+      if (result.data) setPreferences(result.data);
+    });
+  }, []);
   return (
     <div className="space-y-6">
-      <BuyerPanel>
-        <div className="eyebrow">Preferences</div>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <label>
-            <span className="eyebrow mb-2 block">Currency</span>
-            <select className="art-field">
-              <option>PKR</option>
-              <option>USD preview</option>
-            </select>
-          </label>
-          <label>
-            <span className="eyebrow mb-2 block">Language</span>
-            <select className="art-field">
-              <option>English</option>
-              <option>Urdu</option>
-            </select>
-          </label>
-        </div>
-        <button onClick={() => toast.success("Preferences saved")} className="btn-primary mt-6">
-          Save preferences
-        </button>
-      </BuyerPanel>
       <BuyerPanel>
         <div className="eyebrow">Notification preferences</div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {[
-            "Messages",
-            "Offers",
-            "Order updates",
-            "Artist updates",
-            "Saved artwork changes",
-            "Recommendations",
-          ].map((value) => (
+            ["Email notifications", "email"],
+            ["In-app notifications", "inApp"],
+            ["Recommendations", "marketing"],
+            ["Order updates", "orderUpdates"],
+            ["Messages and offers", "messageUpdates"],
+          ].map(([label, key]) => (
             <label
-              key={value}
+              key={key}
               className="flex min-h-12 items-center justify-between rounded-xl border border-[var(--color-border)] px-4 text-sm"
             >
-              <span>{value}</span>
-              <input type="checkbox" defaultChecked className="accent-[var(--oxblood)]" />
+              <span>{label}</span>
+              <input
+                type="checkbox"
+                checked={Boolean(preferences[key])}
+                onChange={(event) =>
+                  setPreferences((current) => ({ ...current, [key]: event.target.checked }))
+                }
+                className="accent-[var(--oxblood)]"
+              />
             </label>
           ))}
         </div>
+        <button
+          onClick={() =>
+            void NotificationService.updatePreferences(preferences).then((result) =>
+              result.error ? toast.error(result.error.message) : toast.success("Preferences saved"),
+            )
+          }
+          className="btn-primary mt-6"
+        >
+          Save preferences
+        </button>
       </BuyerPanel>
     </div>
   );

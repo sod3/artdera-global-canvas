@@ -44,7 +44,12 @@ export function publicStore(store: Record<string, unknown>) {
     profileImage: store.logoUrl ?? "",
     featuredArtworkId: id(store.featuredArtworkId),
     verified: store.verificationStatus === "approved",
-    status: store.status === "active" ? "Published" : store.status === "suspended" ? "Suspended" : "Draft",
+    status:
+      store.status === "active"
+        ? "Published"
+        : store.status === "suspended"
+          ? "Suspended"
+          : "Draft",
     followers: store.totalFollowers ?? 0,
     rating: store.rating ?? 0,
     reviewCount: store.reviewCount ?? 0,
@@ -72,7 +77,10 @@ export function publicArtwork(artwork: Record<string, any>) {
     artistId: id(artwork.artistId?._id ?? artwork.artistId),
     galleryId: id(artwork.galleryId?._id ?? artwork.galleryId),
     creatorName:
-      artwork.artistId?.fullName ?? artwork.storeId?.name ?? artwork.creatorName ?? "ArtDera creator",
+      artwork.artistId?.fullName ??
+      artwork.storeId?.name ??
+      artwork.creatorName ??
+      "ArtDera creator",
     slug: artwork.slug,
     title: artwork.title,
     description: artwork.description ?? "",
@@ -96,7 +104,8 @@ export function publicArtwork(artwork: Record<string, any>) {
     width: artwork.width,
     height: artwork.height,
     depth: artwork.depth,
-    weightKg: artwork.weightUnit === "lb" ? Number(artwork.weight ?? 0) * 0.453592 : artwork.weight ?? 0,
+    weightKg:
+      artwork.weightUnit === "lb" ? Number(artwork.weight ?? 0) * 0.453592 : (artwork.weight ?? 0),
     framed: artwork.isFramed ?? false,
     orientation:
       artwork.orientation === "landscape"
@@ -123,7 +132,8 @@ export function publicArtwork(artwork: Record<string, any>) {
     saves: artwork.wishlistCount ?? 0,
     messages: artwork.messageCount ?? 0,
     sponsored: artwork.isSponsored ?? false,
-    createdAt: artwork.createdAt instanceof Date ? artwork.createdAt.toISOString() : artwork.createdAt,
+    createdAt:
+      artwork.createdAt instanceof Date ? artwork.createdAt.toISOString() : artwork.createdAt,
   };
 }
 
@@ -153,6 +163,7 @@ export function serializeSubscription(subscription: Record<string, any>) {
     listingLimit: subscription.listingLimit,
     featureIds: subscription.featuresSnapshot ?? [],
     cancelledAt: subscription.cancelledAt?.toISOString?.() ?? subscription.cancelledAt,
+    cancelAtPeriodEnd: Boolean(subscription.cancelAtPeriodEnd),
     pendingPlanId: subscription.pendingPlanId,
     pendingChangeAt: subscription.pendingChangeAt?.toISOString?.() ?? subscription.pendingChangeAt,
   };

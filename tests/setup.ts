@@ -17,7 +17,9 @@ process.env.UPLOAD_DIR = "test-uploads";
 process.env.SEED_DEMO_DATA = "false";
 
 beforeAll(async () => {
-  replicaSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
+  replicaSet = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: "wiredTiger" },
+  });
   process.env.MONGODB_URI = replicaSet.getUri();
   process.env.MONGODB_DB_NAME = "artdera_test";
   const { resetEnvForTests } = await import("../server/config/env");
@@ -27,7 +29,9 @@ beforeAll(async () => {
 }, 120_000);
 
 beforeEach(async () => {
-  await Promise.all(Object.values(mongoose.connection.collections).map((collection) => collection.deleteMany({})));
+  await Promise.all(
+    Object.values(mongoose.connection.collections).map((collection) => collection.deleteMany({})),
+  );
   const { seedPlansAndTaxonomy } = await import("../server/scripts/seed-data");
   await seedPlansAndTaxonomy();
 });

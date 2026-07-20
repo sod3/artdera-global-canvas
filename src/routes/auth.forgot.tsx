@@ -26,8 +26,8 @@ function ForgotPassword() {
             <div className="eyebrow mt-6">Request accepted</div>
             <h1 className="mt-3 font-display text-4xl">Check your recovery channel.</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              For privacy, this screen does not reveal whether an account exists. If configured,
-              a time-limited code has been sent.
+              For privacy, this screen does not reveal whether an account exists. If configured, a
+              time-limited code has been sent.
             </p>
             <Link to="/auth/reset" className="btn-primary mt-6">
               Enter reset code

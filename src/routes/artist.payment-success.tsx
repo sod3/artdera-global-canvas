@@ -42,15 +42,15 @@ function PaymentSuccess() {
         </h1>
         <p className="mt-4 text-sm leading-relaxed text-white/65">
           {pending
-            ? "No real payment was sent. Demo approval can be completed by returning to checkout."
-            : "Your mock invoice and subscription have been created. Continue directly to build your store."}
+            ? "Payment remains pending until it is confirmed by the configured provider."
+            : "Your invoice and active subscription are stored in your account. Continue directly to build your store."}
         </p>
         <dl className="mt-7 divide-y divide-white/10 rounded-2xl border border-white/12 px-5">
           {[
             ["Selected plan", PLANS[selection.planId].name],
             ["Billing cycle", selection.billingCycle],
             ["Amount paid", formatPKR(selection.price)],
-            ["Mock invoice", invoice?.id ?? payment.reference],
+            ["Invoice", invoice?.id ?? payment.reference],
             ["Subscription status", subscription.status],
             [
               "Next billing date",

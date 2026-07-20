@@ -80,12 +80,19 @@ function ProductPage() {
   const { slug } = Route.useParams();
   const product = getProduct(slug);
   const { user } = useAuth();
-  if (!product)
-    return <div className="container-editorial py-24 text-center"><h1 className="font-display text-4xl">Work not found</h1><a href="/discover" className="btn-primary mt-6">Back to Discover</a></div>;
-  const creator = getCreator(product.creatorSlug)!;
-  const artwork = ARTWORKS.find((item) => item.slug === product.slug);
   const [active, setActive] = useState(0);
   const [saved, setSaved] = useState(false);
+  if (!product)
+    return (
+      <div className="container-editorial py-24 text-center">
+        <h1 className="font-display text-4xl">Work not found</h1>
+        <a href="/discover" className="btn-primary mt-6">
+          Back to Discover
+        </a>
+      </div>
+    );
+  const creator = getCreator(product.creatorSlug)!;
+  const artwork = ARTWORKS.find((item) => item.slug === product.slug);
   const more = productsByCreator(product.creatorSlug).filter((p) => p.slug !== product.slug);
   const similar = PRODUCTS.filter(
     (p) => p.slug !== product.slug && p.categorySlug === product.categorySlug,
@@ -93,7 +100,9 @@ function ProductPage() {
 
   const requireBuyer = () => {
     if (!user) {
-      window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+      window.location.assign(
+        `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+      );
       return false;
     }
     if (user.role !== "buyer") {
@@ -113,7 +122,9 @@ function ProductPage() {
 
   const toggleWishlist = async () => {
     if (!requireBuyer() || !artwork) return;
-    const result = saved ? await WishlistService.remove(artwork.id) : await WishlistService.save(artwork.id);
+    const result = saved
+      ? await WishlistService.remove(artwork.id)
+      : await WishlistService.save(artwork.id);
     if (result.error) return toast.error(result.error.message);
     setSaved(!saved);
     toast.success(saved ? "Removed from wishlist" : "Saved to wishlist");
@@ -233,10 +244,18 @@ function ProductPage() {
           </div>
 
           <div className="mt-7 space-y-3">
-            <button type="button" onClick={() => void addToCart()} className="btn-primary w-full py-3.5">
+            <button
+              type="button"
+              onClick={() => void addToCart()}
+              className="btn-primary w-full py-3.5"
+            >
               <ShoppingBag className="h-4 w-4" /> Add to Cart
             </button>
-            <button type="button" onClick={() => void addToCart(true)} className="btn-dark w-full py-3.5">
+            <button
+              type="button"
+              onClick={() => void addToCart(true)}
+              className="btn-dark w-full py-3.5"
+            >
               Buy Now
             </button>
             <ViewInSpace product={product} />
@@ -249,35 +268,60 @@ function ProductPage() {
               >
                 <Heart className="h-4 w-4" fill={saved ? "currentColor" : "none"} /> Wishlist
               </button>
-              <button type="button" onClick={() => void conversation().then((value) => value && window.location.assign(`/messages?conversation=${value.id}`))} className="btn-ghost">
+              <button
+                type="button"
+                onClick={() =>
+                  void conversation().then(
+                    (value) =>
+                      value && window.location.assign(`/messages?conversation=${value.id}`),
+                  )
+                }
+                className="btn-ghost"
+              >
                 <MessageCircle className="h-4 w-4" /> Message
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => void (async () => {
-                  const value = window.prompt("Your offer in PKR", String(Math.round(product.price * 0.9)));
-                  const amount = Number(value);
-                  if (!value || !Number.isFinite(amount) || amount <= 0) return;
-                  const thread = await conversation();
-                  if (!thread) return;
-                  const result = await MessageService.createOffer(thread.id, amount);
-                  result.error ? toast.error(result.error.message) : toast.success("Offer sent securely");
-                })()}
+                onClick={() =>
+                  void (async () => {
+                    const value = window.prompt(
+                      "Your offer in PKR",
+                      String(Math.round(product.price * 0.9)),
+                    );
+                    const amount = Number(value);
+                    if (!value || !Number.isFinite(amount) || amount <= 0) return;
+                    const thread = await conversation();
+                    if (!thread) return;
+                    const result = await MessageService.createOffer(thread.id, amount);
+                    result.error
+                      ? toast.error(result.error.message)
+                      : toast.success("Offer sent securely");
+                  })()
+                }
                 className="btn-ghost"
               >
                 <Tag className="h-4 w-4" /> Make an Offer
               </button>
               <button
                 type="button"
-                onClick={() => void (async () => {
-                  const thread = await conversation();
-                  if (!thread) return;
-                  const date = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
-                  const result = await MessageService.requestConsultation({ conversationId: thread.id, requestedDate: date, requestedTime: "17:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
-                  result.error ? toast.error(result.error.message) : toast.success("Video consultation requested");
-                })()}
+                onClick={() =>
+                  void (async () => {
+                    const thread = await conversation();
+                    if (!thread) return;
+                    const date = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+                    const result = await MessageService.requestConsultation({
+                      conversationId: thread.id,
+                      requestedDate: date,
+                      requestedTime: "17:00",
+                      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    });
+                    result.error
+                      ? toast.error(result.error.message)
+                      : toast.success("Video consultation requested");
+                  })()
+                }
                 className="btn-ghost"
               >
                 <Video className="h-4 w-4" /> Request Video
@@ -416,7 +460,11 @@ function ProductPage() {
             <div className="truncate text-sm font-semibold">{product.title}</div>
             <div className="text-xs text-muted-foreground">{formatPKR(product.price)}</div>
           </div>
-          <button type="button" onClick={() => void addToCart()} className="btn-primary shrink-0 px-4">
+          <button
+            type="button"
+            onClick={() => void addToCart()}
+            className="btn-primary shrink-0 px-4"
+          >
             Add to Cart
           </button>
         </div>

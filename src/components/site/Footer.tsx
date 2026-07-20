@@ -1,6 +1,7 @@
 import { Facebook, Instagram, Linkedin, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Logo } from "./Logo";
+import { NewsletterService } from "@/marketplace/services";
 
 const COLS = [
   {
@@ -107,18 +108,24 @@ export function Footer() {
             </p>
             <form
               className="mt-5 flex gap-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                toast.success("Newsletter preference saved in demo mode", {
-                  description: "No email was sent or subscribed.",
-                });
-              }}
+              onSubmit={(event) =>
+                void (async () => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const email = String(new FormData(form).get("email") ?? "");
+                  const result = await NewsletterService.subscribe(email, "footer");
+                  if (result.error) return toast.error(result.error.message);
+                  form.reset();
+                  toast.success("Newsletter preference saved");
+                })()
+              }
             >
               <label className="sr-only" htmlFor="footer-email">
                 Email address
               </label>
               <input
                 id="footer-email"
+                name="email"
                 type="email"
                 required
                 placeholder="you@example.com"

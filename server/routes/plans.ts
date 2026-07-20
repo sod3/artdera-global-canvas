@@ -22,7 +22,9 @@ function serializePlan(plan: Record<string, any>) {
     profile: plan.planId === "gallery" ? "Gallery storefront" : `${plan.name} artist profile`,
     analytics: `${String(plan.analyticsLevel).charAt(0).toUpperCase()}${String(plan.analyticsLevel).slice(1)}`,
     payoutTime: `${plan.payoutMinimumDays}–${plan.payoutMaximumDays} working days`,
-    staffLimit: plan.staffAccountMaximum ? `${plan.staffAccountMinimum}–${plan.staffAccountMaximum}` : undefined,
+    staffLimit: plan.staffAccountMaximum
+      ? `${plan.staffAccountMinimum}–${plan.staffAccountMaximum}`
+      : undefined,
     recommended: plan.recommended,
     features: plan.features,
     billingOptions: plan.allowedBillingCycles,
@@ -38,7 +40,9 @@ function serializePlan(plan: Record<string, any>) {
 plansRouter.get(
   "/",
   asyncRoute(async (_req, res) => {
-    const plans = await SubscriptionPlanModel.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+    const plans = await SubscriptionPlanModel.find({ isActive: true })
+      .sort({ sortOrder: 1 })
+      .lean();
     return ok(res, plans.map(serializePlan));
   }),
 );
@@ -102,9 +106,13 @@ plansRouter.patch(
     const plan = await SubscriptionPlanModel.findOneAndUpdate(
       { planId: req.params.planId },
       { $set: input },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean();
-    if (!plan) return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Plan not found", fieldErrors: {} } });
+    if (!plan)
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Plan not found", fieldErrors: {} },
+      });
     await audit(req, "plan.updated", "SubscriptionPlan", plan._id, before, plan);
     return ok(res, serializePlan(plan), "Plan updated");
   }),

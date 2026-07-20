@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import { getEnv } from "./config/env";
 
 declare global {
-  // eslint-disable-next-line no-var
-  var __artderaMongoose: { connection: typeof mongoose | null; promise: Promise<typeof mongoose> | null } | undefined;
+  var __artderaMongoose:
+    { connection: typeof mongoose | null; promise: Promise<typeof mongoose> | null } | undefined;
 }
 
 const cache = globalThis.__artderaMongoose ?? { connection: null, promise: null };

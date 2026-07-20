@@ -62,13 +62,68 @@ export function createApp() {
   app.use(originGuard);
   app.use(optionalAuth);
 
-  const generalLimit = rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "RATE_LIMITED", message: "Too many requests. Please try again shortly.", fieldErrors: {} } } });
-  const authLimit = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false, skipSuccessfulRequests: true, message: { success: false, error: { code: "RATE_LIMITED", message: "Too many authentication attempts. Please wait and try again.", fieldErrors: {} } } });
-  const messageLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "RATE_LIMITED", message: "Message limit reached. Please wait a moment.", fieldErrors: {} } } });
-  const paymentLimit = rateLimit({ windowMs: 15 * 60_000, limit: 15, standardHeaders: "draft-8", legacyHeaders: false, message: { success: false, error: { code: "RATE_LIMITED", message: "Too many payment attempts. Please wait and try again.", fieldErrors: {} } } });
+  const generalLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 240,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests. Please try again shortly.",
+        fieldErrors: {},
+      },
+    },
+  });
+  const authLimit = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 20,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: {
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many authentication attempts. Please wait and try again.",
+        fieldErrors: {},
+      },
+    },
+  });
+  const messageLimit = rateLimit({
+    windowMs: 60_000,
+    limit: 30,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Message limit reached. Please wait a moment.",
+        fieldErrors: {},
+      },
+    },
+  });
+  const paymentLimit = rateLimit({
+    windowMs: 15 * 60_000,
+    limit: 15,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    message: {
+      success: false,
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many payment attempts. Please wait and try again.",
+        fieldErrors: {},
+      },
+    },
+  });
 
   app.use("/api", generalLimit);
-  app.get("/api/health", (_req, res) => ok(res, { status: mongoose.connection.readyState === 1 ? "ready" : "starting" }));
+  app.get("/api/health", (_req, res) =>
+    ok(res, { status: mongoose.connection.readyState === 1 ? "ready" : "starting" }),
+  );
   app.use("/api/auth", authLimit, authRouter);
   app.use("/api/plans", plansRouter);
   app.use("/api/subscriptions/payment", paymentLimit);
@@ -83,7 +138,15 @@ export function createApp() {
   app.use("/api/admin", adminRouter);
   app.use("/api/bootstrap", bootstrapRouter);
   if (env.UPLOAD_PROVIDER === "local") {
-    app.use("/uploads", express.static(path.resolve(process.cwd(), env.UPLOAD_DIR, "public"), { fallthrough: false, index: false, dotfiles: "deny", maxAge: env.NODE_ENV === "production" ? "1y" : 0 }));
+    app.use(
+      "/uploads",
+      express.static(path.resolve(process.cwd(), env.UPLOAD_DIR, "public"), {
+        fallthrough: false,
+        index: false,
+        dotfiles: "deny",
+        maxAge: env.NODE_ENV === "production" ? "1y" : 0,
+      }),
+    );
   }
   app.use(notFound);
   app.use(errorHandler);

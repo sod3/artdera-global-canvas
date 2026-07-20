@@ -27,7 +27,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ARTWORKS, STORES } from "@/marketplace/data";
-import { ArtworkService, FollowService, MessageService, ReviewService, StoreService, WishlistService } from "@/marketplace/services";
+import {
+  ArtworkService,
+  FollowService,
+  MessageService,
+  ReviewService,
+  StoreService,
+  WishlistService,
+} from "@/marketplace/services";
 import { useAuth } from "@/marketplace/auth";
 import { formatPKR } from "@/marketplace/config";
 import type { Artwork, Store } from "@/marketplace/types";
@@ -79,12 +86,23 @@ function Storefront() {
   const [availability, setAvailability] = useState("Available");
   const [framed, setFramed] = useState(false);
   const [maxPrice, setMaxPrice] = useState(300000);
-  const [reviews, setReviews] = useState<Array<{ id: string; rating: number; title: string; body: string; sellerResponse?: string; createdAt: string }>>([]);
+  const [reviews, setReviews] = useState<
+    Array<{
+      id: string;
+      rating: number;
+      title: string;
+      body: string;
+      sellerResponse?: string;
+      createdAt: string;
+    }>
+  >([]);
   useEffect(() => {
     StoreService.fetchBySlug(slug).then((result) => {
       if (result.data) {
         setStore(result.data.store);
-        void ReviewService.publicForStore(result.data.store.id).then((reviewResult) => reviewResult.data && setReviews(reviewResult.data));
+        void ReviewService.publicForStore(result.data.store.id).then(
+          (reviewResult) => reviewResult.data && setReviews(reviewResult.data),
+        );
       }
     });
   }, [slug]);
@@ -93,7 +111,7 @@ function Storefront() {
     void FollowService.list().then((result) => {
       if (result.data) setFollowed(result.data.some((item) => item.id === store.id));
     });
-  }, [store?.id, user?.id]);
+  }, [store, user]);
   const artworks = useMemo(
     () =>
       store
@@ -123,8 +141,13 @@ function Storefront() {
       </div>
     );
   const toggleFollow = async () => {
-    if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-    const result = followed ? await FollowService.unfollow(store.id) : await FollowService.follow(store.id);
+    if (!user)
+      return window.location.assign(
+        `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+      );
+    const result = followed
+      ? await FollowService.unfollow(store.id)
+      : await FollowService.follow(store.id);
     if (result.error) return toast.error(result.error.message);
     setFollowed(!followed);
     toast.success(followed ? "Store unfollowed" : "Store followed");
@@ -368,30 +391,49 @@ function Storefront() {
           </div>
           <span className="chip">{store.reviewCount} reviews</span>
         </div>
-        {reviews.length ? <div className="mt-7 grid gap-4 md:grid-cols-3">
-          {reviews.slice(0, 6).map((review) => (
-            <article
-              key={review.id}
-              className="rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5"
-            >
-              <div className="flex text-amber-500">
-                {Array.from({ length: review.rating }, (_, star) => (
-                  <Star key={star} className="h-3.5 w-3.5" fill="currentColor" />
-                ))}
-              </div>
-              {review.title && <h3 className="mt-4 font-semibold">{review.title}</h3>}
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{review.body}</p>
-              <div className="mt-5 text-xs font-semibold">Verified completed-order buyer</div>
-              {review.sellerResponse && <div className="mt-4 rounded-xl bg-[var(--ivory)] p-3 text-xs"><strong>Seller response</strong><p className="mt-1 text-muted-foreground">{review.sellerResponse}</p></div>}
-            </article>
-          ))}
-        </div> : <p className="mt-7 rounded-2xl bg-[var(--porcelain)] p-6 text-sm text-muted-foreground">No written reviews have been published for this store yet.</p>}
+        {reviews.length ? (
+          <div className="mt-7 grid gap-4 md:grid-cols-3">
+            {reviews.slice(0, 6).map((review) => (
+              <article
+                key={review.id}
+                className="rounded-2xl border border-[var(--color-border)] bg-[var(--porcelain)] p-5"
+              >
+                <div className="flex text-amber-500">
+                  {Array.from({ length: review.rating }, (_, star) => (
+                    <Star key={star} className="h-3.5 w-3.5" fill="currentColor" />
+                  ))}
+                </div>
+                {review.title && <h3 className="mt-4 font-semibold">{review.title}</h3>}
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{review.body}</p>
+                <div className="mt-5 text-xs font-semibold">Verified completed-order buyer</div>
+                {review.sellerResponse && (
+                  <div className="mt-4 rounded-xl bg-[var(--ivory)] p-3 text-xs">
+                    <strong>Seller response</strong>
+                    <p className="mt-1 text-muted-foreground">{review.sellerResponse}</p>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-7 rounded-2xl bg-[var(--porcelain)] p-6 text-sm text-muted-foreground">
+            No written reviews have been published for this store yet.
+          </p>
+        )}
       </section>
     </div>
   );
 }
 
-function StoreArtwork({ artwork, sponsored, canSave }: { artwork: Artwork; sponsored: boolean; canSave: boolean }) {
+function StoreArtwork({
+  artwork,
+  sponsored,
+  canSave,
+}: {
+  artwork: Artwork;
+  sponsored: boolean;
+  canSave: boolean;
+}) {
   const [saved, setSaved] = useState(false);
   return (
     <article className="group">
@@ -426,13 +468,20 @@ function StoreArtwork({ artwork, sponsored, canSave }: { artwork: Artwork; spons
           <div className="mt-2 text-sm font-semibold">{formatPKR(artwork.price)}</div>
         </div>
         <button
-          onClick={() => void (async () => {
-            if (!canSave) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-            const result = saved ? await WishlistService.remove(artwork.id) : await WishlistService.save(artwork.id);
-            if (result.error) return toast.error(result.error.message);
-            setSaved(!saved);
-            toast.success(saved ? "Removed from wishlist" : "Saved to wishlist");
-          })()}
+          onClick={() =>
+            void (async () => {
+              if (!canSave)
+                return window.location.assign(
+                  `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+                );
+              const result = saved
+                ? await WishlistService.remove(artwork.id)
+                : await WishlistService.save(artwork.id);
+              if (result.error) return toast.error(result.error.message);
+              setSaved(!saved);
+              toast.success(saved ? "Removed from wishlist" : "Saved to wishlist");
+            })()
+          }
           className="flex h-10 w-10 items-center justify-center rounded-full border"
           aria-label={`Save ${artwork.title}`}
         >
@@ -496,16 +545,25 @@ function ContactDialog({ store }: { store: Store }) {
           </div>
           <button
             disabled={sending}
-            onClick={() => void (async () => {
-              if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-              if (!message.trim()) return toast.error("Write a message first.");
-              setSending(true);
-              const result = await MessageService.createConversation(store.id, undefined, `${type}: ${message}`);
-              setSending(false);
-              if (result.error) return toast.error(result.error.message);
-              toast.success(`${type} sent securely`);
-              setMessage("");
-            })()}
+            onClick={() =>
+              void (async () => {
+                if (!user)
+                  return window.location.assign(
+                    `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+                  );
+                if (!message.trim()) return toast.error("Write a message first.");
+                setSending(true);
+                const result = await MessageService.createConversation(
+                  store.id,
+                  undefined,
+                  `${type}: ${message}`,
+                );
+                setSending(false);
+                if (result.error) return toast.error(result.error.message);
+                toast.success(`${type} sent securely`);
+                setMessage("");
+              })()
+            }
             className="btn-primary disabled:opacity-45"
           >
             {sending ? "Sending…" : "Send securely"}
@@ -538,30 +596,63 @@ function VideoDialog({ store, artwork }: { store: Store; artwork?: Artwork }) {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label>
             <span className="eyebrow mb-2 block">Preferred date</span>
-            <input type="date" className="art-field" value={date} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setDate(event.target.value)} />
+            <input
+              type="date"
+              className="art-field"
+              value={date}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(event) => setDate(event.target.value)}
+            />
           </label>
           <label>
             <span className="eyebrow mb-2 block">Preferred time</span>
-            <input type="time" className="art-field" value={time} onChange={(event) => setTime(event.target.value)} />
+            <input
+              type="time"
+              className="art-field"
+              value={time}
+              onChange={(event) => setTime(event.target.value)}
+            />
           </label>
           <label className="sm:col-span-2">
             <span className="eyebrow mb-2 block">Message</span>
-            <textarea rows={4} className="art-field !rounded-xl" value={message} onChange={(event) => setMessage(event.target.value)} />
+            <textarea
+              rows={4}
+              className="art-field !rounded-xl"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+            />
           </label>
         </div>
         <button
           disabled={sending || !artwork}
-          onClick={() => void (async () => {
-            if (!user) return window.location.assign(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-            if (!artwork) return toast.error("This store has no available artwork for a consultation.");
-            if (!date || !time) return toast.error("Choose a preferred date and time.");
-            setSending(true);
-            const conversation = await MessageService.createConversation(store.id, artwork.id);
-            if (conversation.error) { setSending(false); return toast.error(conversation.error.message); }
-            const result = await MessageService.requestConsultation({ conversationId: conversation.data!.id, requestedDate: new Date(`${date}T${time}:00`).toISOString(), requestedTime: time, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, message });
-            setSending(false);
-            result.error ? toast.error(result.error.message) : toast.success("Video consultation requested");
-          })()}
+          onClick={() =>
+            void (async () => {
+              if (!user)
+                return window.location.assign(
+                  `/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+                );
+              if (!artwork)
+                return toast.error("This store has no available artwork for a consultation.");
+              if (!date || !time) return toast.error("Choose a preferred date and time.");
+              setSending(true);
+              const conversation = await MessageService.createConversation(store.id, artwork.id);
+              if (conversation.error) {
+                setSending(false);
+                return toast.error(conversation.error.message);
+              }
+              const result = await MessageService.requestConsultation({
+                conversationId: conversation.data!.id,
+                requestedDate: new Date(`${date}T${time}:00`).toISOString(),
+                requestedTime: time,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                message,
+              });
+              setSending(false);
+              result.error
+                ? toast.error(result.error.message)
+                : toast.success("Video consultation requested");
+            })()
+          }
           className="btn-primary mt-5 disabled:opacity-45"
         >
           {sending ? "Sending request…" : "Request consultation"}

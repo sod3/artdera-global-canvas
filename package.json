@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx server/scripts/seed.ts",
+    "db:smoke": "tsx server/scripts/smoke-db.ts",
     "admin:create": "tsx server/scripts/create-admin.ts",
     "format": "prettier --write ."
   },

@@ -23,6 +23,8 @@ import {
   IMAGES,
 } from "@/lib/artdera";
 import { ProductCard } from "@/components/site/ProductCard";
+import { NewsletterService } from "@/marketplace/services";
+import { toast } from "sonner";
 // import { ArtDeraScrollStory } from "@/components/site/scroll-story/ArtDeraScrollStory";
 
 const WALL_QUIZ_BUDGET_MAX: Record<string, number> = {
@@ -1043,13 +1045,24 @@ function NewsletterSection() {
         </div>
         <form
           className="flex flex-col gap-3 sm:flex-row"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={(event) =>
+            void (async () => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              const email = String(new FormData(form).get("email") ?? "");
+              const result = await NewsletterService.subscribe(email, "homepage");
+              if (result.error) return toast.error(result.error.message);
+              form.reset();
+              toast.success("Newsletter preference saved");
+            })()
+          }
         >
           <label className="sr-only" htmlFor="newsletter-email">
             Email address
           </label>
           <input
             id="newsletter-email"
+            name="email"
             type="email"
             required
             placeholder="you@example.com"

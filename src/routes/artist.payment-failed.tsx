@@ -29,7 +29,7 @@ function PaymentFailed() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-700">
           <AlertTriangle className="h-8 w-8" />
         </div>
-        <div className="eyebrow mt-7">Demo payment failed</div>
+        <div className="eyebrow mt-7">Payment failed</div>
         <h1 className="mt-3 font-display text-4xl">Payment could not be completed.</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
           No real payment was charged. Your {selection ? PLANS[selection.planId].name : "selected"}{" "}

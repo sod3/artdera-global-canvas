@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Info, Mail, Pencil, RotateCcw, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { DEMO_OTP, PLANS } from "@/marketplace/config";
+import { DEMO_OTP, DEMO_OTP_MODE, PLANS } from "@/marketplace/config";
 import { useAuth } from "@/marketplace/auth";
 import { SubscriptionService, UserService, VerificationService } from "@/marketplace/services";
 
@@ -57,7 +57,7 @@ function ArtistVerify() {
     if (!user || !selection) return;
     const result = await VerificationService.verify(user.id, digits.join(""));
     if (result.error) {
-      setError("Invalid code. Use the six-digit demo OTP shown below.");
+      setError(result.error.message);
       return;
     }
     setSuccess(true);
@@ -68,13 +68,22 @@ function ArtistVerify() {
     }, 900);
   }
 
-  function saveContact() {
+  async function resend() {
+    setError("");
+    const result = await VerificationService.resend();
+    if (result.error) return setError(result.error.message);
+    setCountdown(45);
+  }
+
+  async function saveContact() {
     if (!user || !editing || !contact.trim()) return;
-    UserService.updateContact(
+    const updated = await UserService.updateContact(
       user.id,
       editing === "email" ? { email: contact } : { mobile: contact },
     );
-    refresh();
+    if (!updated) return setError(`The ${editing} could not be updated.`);
+    await refresh();
+    if (editing === "email") await resend();
     setEditing(null);
     setContact("");
   }
@@ -89,12 +98,12 @@ function ArtistVerify() {
           <h1 className="mt-3 font-display text-4xl">
             {selection.planId === "free"
               ? "Your Free Plan is active."
-              : "Your demo checkout is ready."}
+              : "Your secure checkout is ready."}
           </h1>
           <p className="mt-3 text-sm text-white/65">
             {selection.planId === "free"
               ? "Complete your profile to create your store."
-              : `Continue to secure the ${PLANS[selection.planId].name} Plan with a simulated payment.`}
+              : `Continue to activate the ${PLANS[selection.planId].name} Plan.`}
           </p>
         </div>
       </div>
@@ -109,15 +118,16 @@ function ArtistVerify() {
         <div className="eyebrow mt-7">Account verification</div>
         <h1 className="mt-3 font-display text-4xl">Enter the six-digit code.</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          Demo delivery to <strong className="text-foreground">{user.email}</strong> and{" "}
-          <strong className="text-foreground">{user.mobile}</strong>.
+          We sent a verification code to <strong className="text-foreground">{user.email}</strong>.
         </p>
-        <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-left text-xs leading-relaxed text-amber-900">
-          <Info className="h-4 w-4 shrink-0" />
-          <p>
-            Demo OTP: <strong>{DEMO_OTP}</strong>. No real email or SMS was sent.
-          </p>
-        </div>
+        {DEMO_OTP_MODE && (
+          <div className="mt-5 flex gap-3 rounded-xl bg-amber-50 p-4 text-left text-xs leading-relaxed text-amber-900">
+            <Info className="h-4 w-4 shrink-0" />
+            <p>
+              Development OTP: <strong>{DEMO_OTP}</strong>. Delivery is disabled in this mode.
+            </p>
+          </div>
+        )}
         <div
           className="mt-7 grid grid-cols-6 gap-2"
           onPaste={(event) => {
@@ -161,7 +171,7 @@ function ArtistVerify() {
           <button
             type="button"
             disabled={countdown > 0}
-            onClick={() => setCountdown(45)}
+            onClick={() => void resend()}
             className="inline-flex items-center gap-1 font-semibold underline disabled:no-underline disabled:opacity-50"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -200,7 +210,11 @@ function ArtistVerify() {
               className="art-field"
             />
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={saveContact} className="btn-primary flex-1">
+              <button
+                type="button"
+                onClick={() => void saveContact()}
+                className="btn-primary flex-1"
+              >
                 Save
               </button>
               <button type="button" onClick={() => setEditing(null)} className="btn-ghost">

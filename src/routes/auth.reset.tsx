@@ -55,11 +55,23 @@ function ResetPassword() {
             <form onSubmit={submit} className="mt-7 grid gap-5">
               <label>
                 <span className="eyebrow mb-2 block">Account email</span>
-                <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="art-field" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="art-field"
+                />
               </label>
               <label>
                 <span className="eyebrow mb-2 block">Six-digit code</span>
-                <input inputMode="numeric" required value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="art-field" />
+                <input
+                  inputMode="numeric"
+                  required
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  className="art-field"
+                />
               </label>
               <label>
                 <span className="eyebrow mb-2 block">New password</span>
@@ -96,7 +108,10 @@ function ResetPassword() {
                 ))}
               </div>
               {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
-              <button disabled={!valid || code.length !== 6 || !email} className="btn-primary w-full disabled:opacity-45">
+              <button
+                disabled={!valid || code.length !== 6 || !email}
+                className="btn-primary w-full disabled:opacity-45"
+              >
                 Update password
               </button>
             </form>

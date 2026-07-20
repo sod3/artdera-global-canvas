@@ -34,6 +34,16 @@ export default tseslint.config(
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // API serializers and Mongoose populated documents cross dynamic data
+      // boundaries. Runtime Zod validation and explicit safe serializers are
+      // the enforcement layer at those points.
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-expressions": [
+        "error",
+        { allowShortCircuit: true, allowTernary: true },
+      ],
+      // These expressions intentionally strip ASCII control characters.
+      "no-control-regex": "off",
     },
   },
   eslintPluginPrettier,

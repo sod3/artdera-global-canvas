@@ -31,7 +31,11 @@ export function normalizePhone(phone?: string) {
 }
 
 export function sanitizeText(value: string, maximum = 4000) {
-  return value.replace(/[<>\u0000-\u001F]/g, "").replace(/\s+/g, " ").trim().slice(0, maximum);
+  return value
+    .replace(/[<>\u0000-\u001F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maximum);
 }
 
 export function rejectMongoOperators(value: unknown, depth = 0): void {

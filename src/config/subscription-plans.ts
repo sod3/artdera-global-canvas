@@ -2,7 +2,12 @@ import type { BillingCycle, PlanId, SubscriptionPlan } from "@/marketplace/types
 
 export const SUBSCRIPTION_PLANS = {} as Record<PlanId, SubscriptionPlan>;
 export const PLAN_ORDER: PlanId[] = ["free", "professional", "pro-plus", "gallery"];
-export const PLAN_RANK: Record<PlanId, number> = { free: 0, professional: 1, "pro-plus": 2, gallery: 3 };
+export const PLAN_RANK: Record<PlanId, number> = {
+  free: 0,
+  professional: 1,
+  "pro-plus": 2,
+  gallery: 3,
+};
 
 export function hydrateSubscriptionPlans(plans: SubscriptionPlan[]) {
   for (const key of Object.keys(SUBSCRIPTION_PLANS)) delete SUBSCRIPTION_PLANS[key as PlanId];

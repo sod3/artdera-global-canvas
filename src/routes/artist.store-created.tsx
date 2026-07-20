@@ -47,7 +47,7 @@ function StoreCreated() {
         <h1 className="mt-3 font-display text-5xl">Congratulations, {store.name} is ready.</h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
           Your artist account is signed in and your public store has been published. Identity and
-          portfolio verification remain pending until mock admin approval.
+          portfolio verification remain pending until an authorized admin completes review.
         </p>
         <dl className="mt-7 divide-y divide-white/10 rounded-2xl border border-white/12 px-5">
           {[

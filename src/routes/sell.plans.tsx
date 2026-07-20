@@ -353,8 +353,8 @@ function PlansPage() {
       <div className="mt-10 flex gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--porcelain)] p-4 text-xs leading-relaxed text-muted-foreground">
         <Info className="h-4 w-4 shrink-0 text-[var(--indigo)]" />
         <p>
-          Frontend demo only. Verification is reviewed separately from subscription choice, and no
-          real payment is processed.
+          Verification is reviewed separately from subscription choice. Paid plans proceed to
+          server-validated checkout after account verification.
         </p>
       </div>
       <div className="mt-8 text-center text-sm">

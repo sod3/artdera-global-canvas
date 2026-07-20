@@ -98,11 +98,11 @@ const faqs = [
   ],
   [
     "Can I change my plan later?",
-    "Yes. The demo billing area lets you compare, upgrade, downgrade, cancel and reactivate a plan.",
+    "Yes. The billing area lets you compare, upgrade, downgrade, cancel and reactivate a plan.",
   ],
   [
     "Does ArtDera charge commission?",
-    "The current demo rates are 2% for Free, 1.5% for Professional, 1% for Pro Plus and 0% for Gallery. Payment processing, shipping, taxes and optional services may be separate later.",
+    "The current rates are 2% for Free, 1.5% for Professional, 1% for Pro Plus and 0% for Gallery. Payment processing, shipping, taxes and optional services are itemized separately where applicable.",
   ],
   [
     "How do sponsored listings work?",
@@ -110,7 +110,7 @@ const faqs = [
   ],
   [
     "When will I receive my payout?",
-    "The expected timing depends on your plan and begins after successful delivery and order completion once backend payouts are connected.",
+    "The expected timing depends on your plan and begins after successful delivery and order completion. Payout availability depends on the configured provider.",
   ],
   [
     "Can galleries manage multiple artists?",
@@ -122,15 +122,15 @@ const faqs = [
   ],
   [
     "Can buyers contact me directly on WhatsApp?",
-    "Not before purchase. Direct contact is revealed only after a confirmed mock order when delivery coordination requires it.",
+    "Not before purchase. Direct contact is revealed only after a confirmed order when delivery coordination requires it.",
   ],
   [
     "Can I sell internationally?",
-    "Pro Plus and eligible Gallery accounts include international buyer tools. Actual courier and payment coverage will depend on future integrations.",
+    "Pro Plus and eligible Gallery accounts include international buyer tools. Courier and payment coverage depends on the configured providers.",
   ],
   [
     "Can I cancel my subscription?",
-    "Yes. Cancellation is simulated in this frontend; listings remain safe and plan-limit rules are explained before changes.",
+    "Yes. Cancellation is scheduled for the end of the current billing period; listings remain safe and plan-limit rules are explained before changes.",
   ],
   [
     "Is verification automatic?",
@@ -196,8 +196,8 @@ function Sell() {
                 <Check className="h-4 w-4 text-[var(--terracotta)]" /> Start free
               </span>
               <span className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-[var(--terracotta)]" /> No real payment in demo
-                mode
+                <ShieldCheck className="h-4 w-4 text-[var(--terracotta)]" /> Secure server-validated
+                checkout mode
               </span>
               <span className="flex items-center gap-2">
                 <Globe2 className="h-4 w-4 text-[var(--terracotta)]" /> International tools on

@@ -12,7 +12,7 @@ const POLICIES: Record<string, { title: string; summary: string; sections: [stri
       ],
       [
         "Marketplace transactions",
-        "Artwork information, pricing, shipping estimates and order states must be accurate. Demo checkout does not create a binding payment transaction.",
+        "Artwork information, pricing, shipping estimates and order states must be accurate. A binding payment transaction is created only after the configured provider confirms payment.",
       ],
       [
         "Acceptable use",
@@ -26,7 +26,7 @@ const POLICIES: Record<string, { title: string; summary: string; sections: [stri
     sections: [
       [
         "Information used",
-        "The production service may use account, order, support and marketplace activity data to provide the service. This demo stores only minimum mock state in your browser.",
+        "ArtDera uses account, order, support and marketplace activity data to provide and protect the service. Private records are stored by the backend and are subject to the retention terms adopted for launch.",
       ],
       [
         "Protected contact",
@@ -224,10 +224,16 @@ const POLICIES: Record<string, { title: string; summary: string; sections: [stri
     sections: [
       [
         "Essential storage",
-        "This demo uses browser storage for mock session, selected plan, onboarding draft and product state.",
+        "ArtDera uses an essential HTTP-only cookie for authenticated sessions. Onboarding drafts, plan selections and marketplace records are stored by the backend.",
       ],
-      ["Analytics", "Production analytics and consent categories are not connected yet."],
-      ["Control", "Clearing browser storage removes locally saved demo state."],
+      [
+        "Analytics",
+        "Analytics and consent categories must be enabled only under the final consent policy.",
+      ],
+      [
+        "Control",
+        "Signing out revokes the current server session. Browser controls may also remove non-essential cookies.",
+      ],
     ],
   },
   "ai-policy": {
