@@ -29,7 +29,7 @@ export function notFound(_req: Request, _res: Response, next: NextFunction) {
   next(new ApiError(404, "NOT_FOUND", "The requested resource was not found"));
 }
 
-export function errorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(error: unknown, req: Request, res: Response, _next: NextFunction) {
   if (error instanceof ZodError) {
     return res.status(422).json({
       success: false,
@@ -70,6 +70,7 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
       },
     });
   }
+  console.error(`Unhandled API error for ${req.method} ${req.path}`, error);
   return res.status(500).json({
     success: false,
     error: {

@@ -6,6 +6,17 @@ const booleanFromString = z
   .default("false")
   .transform((value) => value === "true");
 
+const originsFromString = z
+  .string()
+  .optional()
+  .transform((value) =>
+    (value ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  )
+  .pipe(z.array(z.string().url()));
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -16,6 +27,7 @@ const envSchema = z
       .default("artdera"),
     AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
     APP_URL: z.string().url().default("http://localhost:3000"),
+    ALLOWED_ORIGINS: originsFromString,
     API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
     DEMO_PAYMENT_MODE: booleanFromString,
     PAYMENT_PROVIDER: z.string().default("demo"),
@@ -24,7 +36,7 @@ const envSchema = z
       .string()
       .regex(/^\d{6}$/)
       .optional(),
-    UPLOAD_PROVIDER: z.enum(["local", "cloudinary", "s3"]).default("local"),
+    UPLOAD_PROVIDER: z.enum(["local", "mongodb", "cloudinary", "s3"]).default("mongodb"),
     UPLOAD_DIR: z.string().default("uploads"),
     UPLOAD_PUBLIC_BASE_URL: z.string().url().optional(),
     MAX_ARTWORK_IMAGE_SIZE_MB: z.coerce.number().positive().max(25).default(10),

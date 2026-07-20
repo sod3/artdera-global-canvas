@@ -5,6 +5,12 @@
 // local NODE_ENV value.
 process.env.NODE_ENV = "production";
 
-const { build } = await import("vite");
+const { createBuilder } = await import("vite");
 
-await build({ mode: "production" });
+// Vite's legacy `build()` API compiles only the first environment. TanStack
+// Start needs the application builder so client, SSR, and Nitro/Vercel output
+// are all rebuilt together; otherwise a stale function can survive while only
+// browser assets are refreshed.
+const builder = await createBuilder({ mode: "production" }, null);
+await builder.buildApp();
+await builder.runDevTools();

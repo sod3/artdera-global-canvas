@@ -17,8 +17,10 @@ export async function connectDatabase() {
       .connect(env.MONGODB_URI, {
         dbName: env.MONGODB_DB_NAME,
         serverSelectionTimeoutMS: 10_000,
-        maxPoolSize: 20,
-        minPoolSize: env.NODE_ENV === "production" ? 2 : 0,
+        maxPoolSize: env.NODE_ENV === "production" ? 10 : 20,
+        // A non-zero minimum pool multiplies connections across serverless
+        // instances and can quickly exhaust an Atlas connection limit.
+        minPoolSize: 0,
         sanitizeFilter: true,
       })
       .catch((error) => {

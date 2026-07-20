@@ -63,11 +63,32 @@ export function payloadGuard(req: Request, _res: Response, next: NextFunction) {
   }
 }
 
+function normalizedOrigin(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+}
+
+export function isAllowedRequestOrigin(req: Request, origin?: string) {
+  if (!origin) return true;
+  const normalized = normalizedOrigin(origin);
+  if (!normalized) return false;
+  const env = getEnv();
+  const configured = [env.APP_URL, ...env.ALLOWED_ORIGINS].map(normalizedOrigin);
+  if (configured.includes(normalized)) return true;
+
+  // Requests to either the custom domain or a Vercel deployment stay
+  // same-origin because the browser client uses relative /api URLs.
+  const host = req.get("host");
+  return Boolean(host && normalized === `${req.protocol}://${host}`);
+}
+
 export function originGuard(req: Request, _res: Response, next: NextFunction) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
-  const env = getEnv();
   const origin = req.get("origin");
-  if (!origin || origin === env.APP_URL) return next();
+  if (isAllowedRequestOrigin(req, origin)) return next();
   return next(new ApiError(403, "INVALID_ORIGIN", "The request origin is not allowed"));
 }
 

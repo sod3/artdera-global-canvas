@@ -976,6 +976,11 @@ export const UploadModel = modelFor(
       publicId: { ...requiredString, unique: true },
       url: requiredString,
       storageKey: { ...requiredString, select: false },
+      provider: {
+        type: String,
+        enum: ["local", "mongodb", "cloudinary", "s3"],
+        default: "local",
+      },
       originalName: { type: String, trim: true, maxlength: 255 },
       mimeType: requiredString,
       size: { type: Number, required: true, min: 1 },

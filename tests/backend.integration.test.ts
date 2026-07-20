@@ -560,3 +560,59 @@ describe("orders, reviews, promotions, and security", () => {
     expect(response!.body.error.code).toBe("RATE_LIMITED");
   });
 });
+
+describe("deployment transport and storage", () => {
+  it("allows same-origin Vercel mutations and rejects foreign origins", async () => {
+    const allowed = await request(app)
+      .post("/api/newsletter")
+      .set("Host", "preview.example.vercel.app")
+      .set("X-Forwarded-Proto", "https")
+      .set("Origin", "https://preview.example.vercel.app")
+      .send({ email: "same-origin@example.com", source: "deployment-test" });
+    expect(allowed.status).toBe(201);
+    expect(allowed.headers["access-control-allow-origin"]).toBe(
+      "https://preview.example.vercel.app",
+    );
+
+    const blocked = await request(app)
+      .post("/api/newsletter")
+      .set("Host", "www.artdera.com")
+      .set("X-Forwarded-Proto", "https")
+      .set("Origin", "https://attacker.example")
+      .send({ email: "blocked-origin@example.com", source: "deployment-test" });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error.code).toBe("INVALID_ORIGIN");
+  });
+
+  it("persists public uploads in MongoDB GridFS and deletes them cleanly", async () => {
+    const agent = request.agent(app);
+    await registerAndVerify(agent, { email: "gridfs-upload@example.com" });
+    const { resetEnvForTests } = await import("../server/config/env");
+    process.env.UPLOAD_PROVIDER = "mongodb";
+    resetEnvForTests();
+    try {
+      const png = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00,
+      ]);
+      const uploaded = await agent
+        .post("/api/uploads")
+        .field("purpose", "profile")
+        .field("access", "public")
+        .attach("file", png, { filename: "avatar.png", contentType: "image/png" });
+      expect(uploaded.status).toBe(201);
+      expect(uploaded.body.data.url).toBe(`/api/uploads/${uploaded.body.data.publicId}/content`);
+
+      const downloaded = await agent.get(uploaded.body.data.url);
+      expect(downloaded.status).toBe(200);
+      expect(downloaded.headers["content-type"]).toMatch(/^image\/png/);
+
+      const deleted = await agent.delete(`/api/uploads/${uploaded.body.data.publicId}`);
+      expect(deleted.status).toBe(200);
+      expect(deleted.body.data.deleted).toBe(true);
+      expect((await agent.get(uploaded.body.data.url)).status).toBe(404);
+    } finally {
+      process.env.UPLOAD_PROVIDER = "local";
+      resetEnvForTests();
+    }
+  });
+});
