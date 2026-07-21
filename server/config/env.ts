@@ -62,16 +62,25 @@ const envSchema = z
   });
 
 export type AppEnv = z.infer<typeof envSchema>;
+
+export class EnvironmentConfigurationError extends Error {
+  readonly fields: string[];
+
+  constructor(fields: string[]) {
+    super(`Server configuration is invalid or incomplete: ${fields.join(", ")}`);
+    this.name = "EnvironmentConfigurationError";
+    this.fields = fields;
+  }
+}
+
 let cachedEnv: AppEnv | undefined;
 
 export function getEnv(): AppEnv {
   if (cachedEnv) return cachedEnv;
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
-    const fields = [...new Set(result.error.issues.map((issue) => issue.path.join(".")))].join(
-      ", ",
-    );
-    throw new Error(`Server configuration is invalid or incomplete: ${fields}`);
+    const fields = [...new Set(result.error.issues.map((issue) => issue.path.join(".")))];
+    throw new EnvironmentConfigurationError(fields);
   }
   cachedEnv = result.data;
   return cachedEnv;

@@ -22,7 +22,7 @@ dist-ssr
 !.env.example
 
 # Local backend uploads (development only)
-uploads/
+/uploads/
 coverage/
 
 # Wrangler / Cloudflare
