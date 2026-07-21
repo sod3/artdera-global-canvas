@@ -1,8 +1,23 @@
 import "dotenv/config";
 import { z } from "zod";
 
+function normalizeVercelScalar(value: unknown) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  const quote = trimmed[0];
+  if ((quote === '"' || quote === "'") && trimmed.at(-1) === quote) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+const nodeEnvironment = z.preprocess(
+  normalizeVercelScalar,
+  z.enum(["development", "test", "production"]).default("development"),
+);
+
 const booleanFromString = z
-  .enum(["true", "false"])
+  .preprocess(normalizeVercelScalar, z.enum(["true", "false"]))
   .default("false")
   .transform((value) => value === "true");
 
@@ -19,7 +34,7 @@ const originsFromString = z
 
 const envSchema = z
   .object({
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    NODE_ENV: nodeEnvironment,
     MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
     MONGODB_DB_NAME: z
       .string()
@@ -45,11 +60,18 @@ const envSchema = z
     SEED_DEMO_DATA: booleanFromString,
   })
   .superRefine((env, ctx) => {
-    if (env.NODE_ENV === "production" && (env.DEMO_PAYMENT_MODE || env.DEMO_OTP_MODE)) {
+    if (env.NODE_ENV === "production" && env.DEMO_PAYMENT_MODE) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["NODE_ENV"],
-        message: "Demo payment and OTP modes must be disabled in production",
+        path: ["DEMO_PAYMENT_MODE"],
+        message: "Demo payment mode must be disabled in production",
+      });
+    }
+    if (env.NODE_ENV === "production" && env.DEMO_OTP_MODE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["DEMO_OTP_MODE"],
+        message: "Demo OTP mode must be disabled in production",
       });
     }
     if (env.DEMO_OTP_MODE && !env.DEMO_OTP_CODE) {
